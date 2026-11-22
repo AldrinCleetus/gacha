@@ -124,12 +124,12 @@ export function SegmentedInput({
   return (
     <div className="w-full flex items-center justify-center select-none py-2">
       <div
-        className="flex items-center justify-center gap-2 sm:gap-3 md:gap-3.5"
+        className="flex items-center justify-center gap-1.5 xs:gap-2 sm:gap-2.5 md:gap-3 lg:gap-3.5"
         role="group"
         aria-label="Lottery Number Input"
       >
         {/* Letters Section (Box 0 & 1) */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
+        <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-2.5">
           {[0, 1].map((idx) => {
             const char = value[idx] || "";
             return (
@@ -152,19 +152,19 @@ export function SegmentedInput({
                 autoCorrect="off"
                 spellCheck="false"
                 aria-label={`Character ${idx + 1} of 8 (${idx === 0 ? "Scheme" : "Series"})`}
-                className="w-11 h-15 sm:w-16 sm:h-22 md:w-20 md:h-26 text-center text-2xl sm:text-3xl md:text-4xl font-extrabold rounded-2xl border border-input-border/80 bg-input-box text-main focus:bg-surface focus:border-primary focus:ring-4 focus:ring-primary/15 outline-none transition-all duration-200 font-mono shadow-sm"
+                className="w-9 h-14 xs:w-11 xs:h-16 sm:w-15 sm:h-20 md:w-18 md:h-24 lg:w-20 lg:h-26 text-center text-xl xs:text-2xl sm:text-3xl md:text-4xl font-extrabold rounded-xl sm:rounded-2xl border border-input-border/80 bg-input-box text-main focus:bg-surface focus:border-primary focus:ring-4 focus:ring-primary/15 outline-none transition-all duration-200 font-mono shadow-sm"
               />
             );
           })}
         </div>
 
         {/* Dot Separator */}
-        <div className="flex items-center justify-center px-1 sm:px-1.5 text-muted">
-          <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-border/90" />
+        <div className="flex items-center justify-center px-0.5 sm:px-1.5 text-muted">
+          <span className="w-1.5 h-1.5 sm:w-2.5 sm:h-2.5 rounded-full bg-border/90" />
         </div>
 
         {/* 6 Digit Boxes (Box 2 to 7) */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
+        <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-2.5">
           {[2, 3, 4, 5, 6, 7].map((idx) => {
             const char = value[idx] || "";
             return (
@@ -185,7 +185,7 @@ export function SegmentedInput({
                 pattern="[0-9]*"
                 autoComplete="off"
                 aria-label={`Digit ${idx - 1} of 6`}
-                className="w-11 h-15 sm:w-16 sm:h-22 md:w-20 md:h-26 text-center text-2xl sm:text-3xl md:text-4xl font-extrabold rounded-2xl border border-input-border/80 bg-input-box text-main focus:bg-surface focus:border-primary focus:ring-4 focus:ring-primary/15 outline-none transition-all duration-200 font-mono shadow-sm"
+                className="w-9 h-14 xs:w-11 xs:h-16 sm:w-15 sm:h-20 md:w-18 md:h-24 lg:w-20 lg:h-26 text-center text-xl xs:text-2xl sm:text-3xl md:text-4xl font-extrabold rounded-xl sm:rounded-2xl border border-input-border/80 bg-input-box text-main focus:bg-surface focus:border-primary focus:ring-4 focus:ring-primary/15 outline-none transition-all duration-200 font-mono shadow-sm"
               />
             );
           })}

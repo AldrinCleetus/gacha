@@ -111,27 +111,27 @@ export function Check() {
   return (
     <div className="flex-1 flex flex-col justify-between">
       {/* ABOVE THE FOLD: Hero Check Input */}
-      <section className="min-h-[calc(100vh-140px)] flex flex-col items-center justify-center text-center py-6 sm:py-8 relative">
-        <div className="w-full max-w-xl mx-auto space-y-4">
+      <section className="min-h-[calc(100vh-140px)] flex flex-col items-center justify-center text-center py-8 sm:py-12 md:py-16 relative">
+        <div className="w-full max-w-3xl lg:max-w-4xl mx-auto space-y-5 sm:space-y-6">
           {/* Scheme Chip Pill */}
-          <div className="h-7 flex items-center justify-center">
+          <div className="h-8 flex items-center justify-center">
             {firstLetter && <SchemeChip firstLetter={firstLetter} drawId={activeDraw?.id} />}
           </div>
 
           {/* Heading & Subtitle exactly matching user spec */}
-          <div className="space-y-1.5">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-main">
+          <div className="space-y-2">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-main">
               Check your lottery
             </h1>
-            <p className="text-xs sm:text-sm text-muted font-normal max-w-md mx-auto">
+            <p className="text-sm sm:text-base text-muted font-normal max-w-lg mx-auto">
               Enter your 8-character lottery series and number to see today&apos;s result.
             </p>
           </div>
 
           {/* Giant Card matching Image 0 */}
-          <div className="w-full bg-surface rounded-3xl sm:rounded-4xl p-5 sm:p-8 border border-border shadow-soft space-y-5 my-2">
+          <div className="w-full bg-surface rounded-[32px] sm:rounded-[40px] p-6 sm:p-10 md:p-12 lg:p-14 border border-border shadow-elevated space-y-6 sm:space-y-8 my-2">
             {/* Segmented 8-char Input */}
-            <div className="w-full py-1">
+            <div className="w-full py-2">
               <SegmentedInput
                 value={characters}
                 onChange={setCharacters}
@@ -141,14 +141,14 @@ export function Check() {
             </div>
 
             {/* Scheduled Draw row */}
-            <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-muted pt-1 gap-2">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-muted">Scheduled Draw:</span>
+            <div className="flex flex-col sm:flex-row items-center justify-between text-xs sm:text-sm text-muted pt-2 gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="font-semibold text-muted">Scheduled Draw:</span>
                 <div className="relative inline-block">
                   <select
                     value={selectedDrawId}
                     onChange={(e) => setSelectedDrawId(e.target.value)}
-                    className="appearance-none bg-input-box border border-input-border rounded-full py-1.5 pl-7 pr-8 text-xs font-semibold text-main focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                    className="appearance-none bg-input-box border border-input-border rounded-full py-2 pl-8 pr-9 text-xs sm:text-sm font-semibold text-main focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer shadow-sm"
                     aria-label="Select Draw"
                   >
                     {draws.map((d) => (
@@ -157,12 +157,12 @@ export function Check() {
                       </option>
                     ))}
                   </select>
-                  <Calendar className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                  <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+                  <Calendar className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+                  <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
                 </div>
               </div>
 
-              <div className="text-[11px] text-subtle font-mono">
+              <div className="text-xs sm:text-sm text-subtle font-mono">
                 Kerala Std Time 15:00
               </div>
             </div>
@@ -172,14 +172,14 @@ export function Check() {
               whileTap={{ scale: 0.98 }}
               onClick={handleCheck}
               disabled={!isComplete}
-              className={`w-full py-3.5 sm:py-4 px-6 rounded-2xl font-bold text-sm sm:text-base shadow-soft transition-all duration-200 flex items-center justify-center gap-2 ${
+              className={`w-full py-4 sm:py-5 px-8 rounded-2xl sm:rounded-3xl font-bold text-base sm:text-lg shadow-soft transition-all duration-200 flex items-center justify-center gap-2.5 ${
                 isComplete
                   ? "bg-primary hover:bg-primary-hover text-white shadow-card cursor-pointer"
                   : "bg-input-box border border-input-border text-subtle cursor-not-allowed opacity-60"
               }`}
             >
               <span>Check lottery</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-5 h-5" />
             </motion.button>
           </div>
 

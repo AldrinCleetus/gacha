@@ -40,7 +40,7 @@ export function App() {
         >
           <Route index element={<Navigate to="/check" replace />} />
           <Route path="check" element={<Check />} />
-          <Route path="check/reveal" element={<Reveal />} />
+          <Route path="check/reveal" element={<Check initialChecking={true} />} />
           <Route path="results" element={<ResultsList />} />
           <Route path="results/:drawId" element={<ResultBreakdown />} />
           <Route path="tickets" element={<MyTickets />} />

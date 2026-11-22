@@ -90,14 +90,14 @@ export function MyTickets() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-main">My Tickets</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-main">My Lotteries</h1>
           <p className="text-xs sm:text-sm text-muted mt-0.5">
-            Every ticket checked, rendered with its official lottery card visual
+            Every lottery checked, rendered with its official lottery card visual
           </p>
         </div>
 
         <span className="text-xs font-semibold text-muted px-3 py-1 rounded-full bg-surface border border-border self-start sm:self-auto">
-          {filteredTickets.length} of {tickets.length} tickets
+          {filteredTickets.length} of {tickets.length} lotteries
         </span>
       </div>
 
@@ -107,7 +107,7 @@ export function MyTickets() {
           <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
             type="text"
-            placeholder="Search ticket or draw..."
+            placeholder="Search lottery or draw..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-input-box border border-input-border text-main focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -156,13 +156,13 @@ export function MyTickets() {
       {/* Dynamic Ticket Cards Grouped by Day */}
       <div className="space-y-8">
         {loading ? (
-          <div className="py-20 text-center text-xs text-muted">Loading tickets…</div>
+          <div className="py-20 text-center text-xs text-muted">Loading lotteries…</div>
         ) : Object.keys(groupedTickets).length === 0 ? (
           <div className="py-20 text-center space-y-3">
             <TicketIcon className="w-8 h-8 text-subtle mx-auto" />
-            <h3 className="text-sm font-bold text-main">No tickets found</h3>
+            <h3 className="text-sm font-bold text-main">No lotteries found</h3>
             <p className="text-xs text-muted max-w-xs mx-auto">
-              No tickets matched your search or filters. Check a new ticket from the Check tab!
+              No lotteries matched your search or filters. Check a new lottery from the Check tab!
             </p>
           </div>
         ) : (
@@ -193,6 +193,8 @@ export function MyTickets() {
                           price={t.cost}
                           state={isWin ? "won" : "lost"}
                           matchedIndices={t.result?.matchedIndices || []}
+                          tierLabel={t.result?.tier}
+                          seriesLabel={`${scheme.name} series ${t.series}`}
                           size="responsive"
                         />
                       </div>

@@ -24,7 +24,7 @@ export function SchemeChip({ firstLetter, drawId = "W-790" }: SchemeChipProps) {
         <span className="w-2 h-2 rounded-full bg-primary" />
         <span className="font-bold">{scheme.name} {drawId}</span>
         <span className="text-subtle">·</span>
-        <span className="text-muted">₹{scheme.price} per ticket</span>
+        <span className="text-muted">₹{scheme.price} per lottery</span>
       </motion.div>
     </AnimatePresence>
   );

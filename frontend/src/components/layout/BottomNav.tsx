@@ -9,7 +9,7 @@ export function BottomNav() {
   const navItems = [
     { path: "/check", label: "Check", icon: Sparkles },
     { path: "/results", label: "Results", icon: Calendar },
-    { path: "/tickets", label: "My Tickets", icon: Ticket },
+    { path: "/tickets", label: "My Lotteries", icon: Ticket },
     { path: "/dashboard", label: "Dashboard", icon: BarChart3 },
   ];
 

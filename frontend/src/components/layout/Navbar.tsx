@@ -38,7 +38,7 @@ export function Navbar() {
   const navItems = [
     { path: "/check", label: "Check" },
     { path: "/results", label: "Results" },
-    { path: "/tickets", label: "My Tickets" },
+    { path: "/tickets", label: "My Lotteries" },
     { path: "/dashboard", label: "Dashboard" },
   ];
 

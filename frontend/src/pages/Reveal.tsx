@@ -180,7 +180,7 @@ export function Reveal() {
           } else if (isFirstCheck) {
             triggerToast({
               type: "first_check",
-              title: "First ticket verified",
+              title: "First lottery verified",
               description: "Your results are now being logged in your history.",
             });
           }
@@ -348,8 +348,8 @@ export function Reveal() {
       <div className="w-full flex items-center justify-between px-2 mb-2 z-20">
         <div className="text-xs font-semibold text-muted">
           {phase === "ANTICIPATION" && `Checking draw ${draw?.id || "W-790"}…`}
-          {phase === "SCAN" && "Scanning ticket…"}
-          {phase === "JUDGEMENT" && `Comparing numbers (${lockedIndices.length} of 8 matched)`}
+          {phase === "SCAN" && "Scanning lottery…"}
+          {phase === "JUDGEMENT" && `Comparing numbers…`}
           {phase === "PAUSE" && "Resolving verdict…"}
           {phase === "VERDICT" && "Official Result"}
         </div>
@@ -404,16 +404,10 @@ export function Reveal() {
             }
             matchedIndices={lockedIndices}
             activeJudgeIndex={activeJudgeIndex}
+            tierLabel={phase === "VERDICT" && result ? result.tier : undefined}
             size="responsive"
           />
         </motion.div>
-
-        {/* Progress Cue under ticket */}
-        {phase === "JUDGEMENT" && (
-          <div className="text-xs text-muted font-medium mt-3">
-            {lockedIndices.length} of 8 characters matched
-          </div>
-        )}
       </div>
 
       {/* Phase 5: Verdict Card & Controls */}
@@ -474,7 +468,7 @@ export function Reveal() {
                 onClick={handleCheckAnother}
                 className="w-full py-3.5 px-6 rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold text-sm shadow-soft transition-all flex items-center justify-center gap-2"
               >
-                <span>Check another ticket</span>
+                <span>Check another lottery</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 

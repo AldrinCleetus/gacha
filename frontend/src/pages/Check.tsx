@@ -124,7 +124,7 @@ export function Check() {
               Check your lottery
             </h1>
             <p className="text-xs sm:text-sm text-muted font-normal max-w-md mx-auto">
-              Enter your 8-character ticket series and number to see today&apos;s result.
+              Enter your 8-character lottery series and number to see today&apos;s result.
             </p>
           </div>
 
@@ -135,6 +135,7 @@ export function Check() {
               <SegmentedInput
                 value={characters}
                 onChange={setCharacters}
+                onSubmit={handleCheck}
                 onComplete={() => {}}
               />
             </div>
@@ -177,7 +178,7 @@ export function Check() {
                   : "bg-input-box border border-input-border text-subtle cursor-not-allowed opacity-60"
               }`}
             >
-              <span>Check ticket</span>
+              <span>Check lottery</span>
               <ArrowRight className="w-4 h-4" />
             </motion.button>
           </div>
@@ -278,10 +279,10 @@ export function Check() {
             </div>
           </div>
 
-          {/* Your recent tickets */}
+          {/* Your recent lotteries */}
           <div className="bg-surface rounded-3xl p-5 sm:p-6 border border-border shadow-soft space-y-3">
             <div className="flex items-center justify-between pb-1">
-              <h2 className="text-sm font-bold text-main">Your recent tickets</h2>
+              <h2 className="text-sm font-bold text-main">Your recent lotteries</h2>
               <Link to="/tickets" className="text-xs text-subtle font-medium hover:text-main">
                 {recentTickets.length} recorded
               </Link>
@@ -291,7 +292,7 @@ export function Check() {
               <div className="py-8 text-center space-y-2">
                 <TicketIcon className="w-8 h-8 text-subtle mx-auto" />
                 <p className="text-xs text-muted">
-                  No tickets checked yet. Enter your ticket above to see your history.
+                  No lotteries checked yet. Enter your lottery above to see your history.
                 </p>
               </div>
             ) : (

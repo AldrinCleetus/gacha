@@ -46,14 +46,14 @@ export function Settings() {
   const handleResetData = async () => {
     await mockLotteryApi.resetHistory();
     setMockNewUser(false);
-    setMessage("Restored ~40 sample historical tickets.");
+    setMessage("Restored ~40 sample historical lotteries.");
     setTimeout(() => setMessage(null), 3000);
   };
 
   const handleClearData = async () => {
     await mockLotteryApi.resetHistory([]);
     setMockNewUser(true);
-    setMessage("Local ticket history cleared. New user state active.");
+    setMessage("Local lottery history cleared. New user state active.");
     setTimeout(() => setMessage(null), 3000);
   };
 
@@ -236,7 +236,7 @@ export function Settings() {
               className="p-2.5 rounded-xl border border-border bg-surface hover:bg-input-box text-xs font-semibold text-main flex items-center justify-center gap-1.5"
             >
               <RefreshCw className="w-3.5 h-3.5 text-primary" />
-              <span>Reset 40 tickets</span>
+              <span>Reset 40 lotteries</span>
             </button>
 
             <button

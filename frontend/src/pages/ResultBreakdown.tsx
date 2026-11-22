@@ -126,7 +126,7 @@ export function ResultBreakdown() {
           <div className="flex items-center justify-between">
             <div>
               <span className="text-[11px] font-semibold text-muted uppercase tracking-wider block">
-                Your Ticket
+                Your Lottery
               </span>
               <div className="text-xl sm:text-2xl font-bold text-main font-mono mt-0.5">
                 {userTicket.ticketString}

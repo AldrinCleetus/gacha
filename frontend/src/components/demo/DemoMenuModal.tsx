@@ -43,7 +43,7 @@ export function DemoMenuModal() {
     {
       id: null,
       label: "Normal Draw Evaluation",
-      desc: "Check ticket against actual drawn numbers",
+      desc: "Check lottery against actual drawn numbers",
       icon: CheckCircle2,
     },
   ];
@@ -132,7 +132,7 @@ export function DemoMenuModal() {
               >
                 <div className="flex items-center gap-1.5 text-xs font-bold text-main">
                   <RefreshCw className="w-3.5 h-3.5 text-primary" />
-                  Seed ~40 Tickets
+                  Seed ~40 Lotteries
                 </div>
                 <p className="text-[11px] text-muted mt-0.5">Realistic history & stats</p>
               </button>
@@ -145,13 +145,13 @@ export function DemoMenuModal() {
                   <UserCheck className="w-3.5 h-3.5 text-gold-text" />
                   New User State
                 </div>
-                <p className="text-[11px] text-muted mt-0.5">Empty dashboard & tickets</p>
+                <p className="text-[11px] text-muted mt-0.5">Empty dashboard & lotteries</p>
               </button>
             </div>
           </div>
 
           <div className="p-3 rounded-2xl bg-input-box border border-border text-xs space-y-1">
-            <span className="font-semibold text-main block">Known Winning Sample Tickets:</span>
+            <span className="font-semibold text-main block">Known Winning Sample Lotteries:</span>
             <div className="font-mono text-[11px] text-muted">
               • 1st Prize: <span className="font-bold text-primary">WA 584920</span> (₹75L)<br />
               • Consolation: <span className="font-bold text-primary">WB 584920</span> (₹8k)<br />

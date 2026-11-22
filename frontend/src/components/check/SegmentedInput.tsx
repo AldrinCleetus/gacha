@@ -92,7 +92,13 @@ export function SegmentedInput({
     const chars = [...parsed.characters];
     onChange(chars);
 
-    const lastFilled = chars.findLastIndex((c) => c !== "");
+    let lastFilled = -1;
+    for (let i = chars.length - 1; i >= 0; i--) {
+      if (chars[i]) {
+        lastFilled = i;
+        break;
+      }
+    }
     const focusTarget = lastFilled >= 0 && lastFilled < 7 ? lastFilled + 1 : 7;
     inputRefs.current[focusTarget]?.focus();
 

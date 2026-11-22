@@ -9,7 +9,7 @@ import { Draw, SavedTicket } from "@/types";
 import { useCheckStore } from "@/store/useCheckStore";
 import { useDemoStore } from "@/store/useDemoStore";
 import { getScheme } from "@/lib/schemes";
-import { ChevronDown, ArrowDown, Sparkles, ArrowRight, Ticket as TicketIcon } from "lucide-react";
+import { ChevronDown, ArrowDown, ArrowRight, Ticket as TicketIcon, Calendar, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 
 export function Check() {
@@ -30,7 +30,6 @@ export function Check() {
     mockLotteryApi.getDraws().then((d) => {
       setDraws(d);
       if (!selectedDrawId && d.length > 0) {
-        // Default to latest published draw
         const latestPublished = d.find((draw) => draw.isPublished) || d[0];
         setSelectedDrawId(latestPublished.id);
       }
@@ -103,7 +102,7 @@ export function Check() {
         day: "numeric",
         month: "short",
       });
-      return `${formattedDate} draw (${draw.id})`;
+      return `${formattedDate} draw`;
     } catch {
       return `${draw.id} draw`;
     }
@@ -112,132 +111,136 @@ export function Check() {
   return (
     <div className="flex-1 flex flex-col justify-between">
       {/* ABOVE THE FOLD: Hero Check Input */}
-      <section className="min-h-[calc(100vh-140px)] flex flex-col items-center justify-center text-center py-8 relative">
+      <section className="min-h-[calc(100vh-140px)] flex flex-col items-center justify-center text-center py-6 sm:py-8 relative">
         <div className="w-full max-w-xl mx-auto space-y-4">
-          {/* Header */}
+          {/* Scheme Chip Pill (slides in above heading when letter typed) */}
+          <div className="h-7 flex items-center justify-center">
+            {firstLetter && <SchemeChip firstLetter={firstLetter} />}
+          </div>
+
+          {/* Heading & Subtitle exactly matching screenshot */}
           <div className="space-y-1.5">
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-main">
               Check your ticket
             </h1>
-            <p className="text-sm sm:text-base text-muted font-normal">
-              Enter your 8-character Kerala ticket number to check results.
+            <p className="text-xs sm:text-sm text-muted font-normal max-w-md mx-auto">
+              Enter your 8-character ticket series and number to see today&apos;s result.
             </p>
           </div>
 
-          {/* Scheme Chip placeholder (slides in after first letter is typed) */}
-          <div className="h-8 flex items-center justify-center">
-            {firstLetter && <SchemeChip firstLetter={firstLetter} />}
-          </div>
-
-          {/* Giant Segmented Input */}
-          <div className="w-full my-4">
-            <SegmentedInput
-              value={characters}
-              onChange={setCharacters}
-              onComplete={() => {}}
-            />
-          </div>
-
-          {/* Draw Selector Pill & Check Button */}
-          <div className="w-full max-w-md mx-auto space-y-3 pt-2">
-            {/* Draw Pill */}
-            <div className="relative inline-block w-full">
-              <select
-                value={selectedDrawId}
-                onChange={(e) => setSelectedDrawId(e.target.value)}
-                className="w-full appearance-none bg-surface border border-border rounded-full py-2.5 pl-5 pr-10 text-xs sm:text-sm font-semibold text-main shadow-soft focus:outline-none focus:ring-2 focus:ring-primary/20 text-center cursor-pointer"
-                aria-label="Select Draw"
-              >
-                {draws.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {formatDrawLabel(d)} {d.isDrawnToday ? "· Drawn today" : ""} {!d.isPublished ? "(Pending)" : ""}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+          {/* Giant Card matching the screenshot */}
+          <div className="w-full bg-surface rounded-3xl sm:rounded-4xl p-5 sm:p-8 border border-border shadow-soft space-y-5 my-2">
+            {/* Segmented 8-char Input */}
+            <div className="w-full">
+              <SegmentedInput
+                value={characters}
+                onChange={setCharacters}
+                onComplete={() => {}}
+              />
             </div>
 
-            {/* Check Button */}
+            {/* Scheduled Draw row */}
+            <div className="flex items-center justify-between text-xs text-muted pt-1">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-main">Scheduled Draw:</span>
+                <div className="relative inline-block">
+                  <select
+                    value={selectedDrawId}
+                    onChange={(e) => setSelectedDrawId(e.target.value)}
+                    className="appearance-none bg-input-box border border-input-border rounded-full py-1.5 pl-7 pr-8 text-xs font-semibold text-main focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                    aria-label="Select Draw"
+                  >
+                    {draws.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {formatDrawLabel(d)} {d.isDrawnToday ? "· Drawn today" : ""} {!d.isPublished ? "(Pending)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <Calendar className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+                  <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            {/* Full-width Green Button */}
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={handleCheck}
               disabled={!isComplete}
-              className={`w-full py-3.5 sm:py-4 px-6 rounded-2xl font-bold text-base shadow-soft transition-all duration-200 flex items-center justify-center gap-2 ${
+              className={`w-full py-4 px-6 rounded-2xl font-bold text-sm sm:text-base shadow-soft transition-all duration-200 flex items-center justify-center gap-2 ${
                 isComplete
                   ? "bg-primary hover:bg-primary-hover text-white shadow-card cursor-pointer"
                   : "bg-surface border border-border text-subtle cursor-not-allowed opacity-60"
               }`}
             >
               <span>Check ticket</span>
-              {isComplete && <ArrowRight className="w-4 h-4" />}
+              <ArrowRight className="w-4 h-4" />
             </motion.button>
+          </div>
 
-            {/* Quick Demo Fill Chips (Subtle helper) */}
-            <div className="pt-2 flex flex-wrap items-center justify-center gap-1.5 text-xs">
-              <span className="text-subtle text-[11px]">Quick test:</span>
-              <button
-                type="button"
-                onClick={() => handleFillSample("WA 584920")}
-                className="px-2 py-0.5 rounded-lg bg-surface border border-border hover:bg-input-box text-muted font-mono"
-              >
-                Jackpot
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFillSample("WB 584920")}
-                className="px-2 py-0.5 rounded-lg bg-surface border border-border hover:bg-input-box text-muted font-mono"
-              >
-                Consolation
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFillSample("WA 114920")}
-                className="px-2 py-0.5 rounded-lg bg-surface border border-border hover:bg-input-box text-muted font-mono"
-              >
-                Last-4
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFillSample("WA 999999")}
-                className="px-2 py-0.5 rounded-lg bg-surface border border-border hover:bg-input-box text-muted font-mono"
-              >
-                No win
-              </button>
-            </div>
+          {/* Quick Demo Fill Chips */}
+          <div className="pt-1 flex flex-wrap items-center justify-center gap-1.5 text-xs">
+            <span className="text-subtle text-[11px]">Quick test:</span>
+            <button
+              type="button"
+              onClick={() => handleFillSample("WA 584920")}
+              className="px-2 py-0.5 rounded-lg bg-surface border border-border hover:bg-input-box text-muted font-mono"
+            >
+              Jackpot
+            </button>
+            <button
+              type="button"
+              onClick={() => handleFillSample("WB 584920")}
+              className="px-2 py-0.5 rounded-lg bg-surface border border-border hover:bg-input-box text-muted font-mono"
+            >
+              Consolation
+            </button>
+            <button
+              type="button"
+              onClick={() => handleFillSample("WA 114920")}
+              className="px-2 py-0.5 rounded-lg bg-surface border border-border hover:bg-input-box text-muted font-mono"
+            >
+              Last-4
+            </button>
+            <button
+              type="button"
+              onClick={() => handleFillSample("WA 999999")}
+              className="px-2 py-0.5 rounded-lg bg-surface border border-border hover:bg-input-box text-muted font-mono"
+            >
+              No win
+            </button>
           </div>
         </div>
 
-        {/* Scroll cue at the bottom of first viewport */}
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-xs text-subtle animate-bounce">
-          <span>Scroll for recent results</span>
-          <ArrowDown className="w-3.5 h-3.5" />
+        {/* Scroll cue matching screenshot */}
+        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-[11px] text-subtle">
+          <span>Scroll for recent results &amp; tracker</span>
+          <ArrowDown className="w-3.5 h-3.5 animate-bounce" />
         </div>
       </section>
 
-      {/* BELOW THE FOLD: Recent results & Your recent tickets */}
-      <section className="pt-12 pb-8 border-t border-border/60">
+      {/* BELOW THE FOLD: Side-by-side Recent results & Your recent tickets */}
+      <section className="pt-12 pb-8 border-t border-border/60 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Recent results */}
-          <div className="bg-surface rounded-3xl p-5 sm:p-6 border border-border shadow-soft space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-main">Recent results</h2>
-              <Link to="/results" className="text-xs font-semibold text-primary hover:underline">
-                View all
-              </Link>
+          <div className="bg-surface rounded-3xl p-5 sm:p-6 border border-border shadow-soft space-y-3">
+            <div className="flex items-center justify-between pb-1">
+              <h2 className="text-sm font-bold text-main">Recent results</h2>
+              <span className="text-xs text-subtle font-medium">Last 4 draws</span>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {draws.slice(0, 4).map((draw) => {
                 const scheme = getScheme(draw.schemeCode);
                 return (
                   <Link
                     key={draw.id}
                     to={`/results/${draw.id}`}
-                    className="flex items-center justify-between p-3 rounded-2xl hover:bg-input-box/70 border border-border/50 transition-colors"
+                    className="flex items-center justify-between p-3 rounded-2xl hover:bg-input-box/60 border border-border/60 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs"
+                        className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs"
                         style={{
                           backgroundColor: scheme.theme.bg,
                           color: scheme.theme.text,
@@ -246,41 +249,25 @@ export function Check() {
                         {scheme.code}
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-main flex items-center gap-1.5">
-                          <span>{scheme.name}</span>
-                          <span className="text-xs text-subtle font-normal font-mono">
-                            {draw.id}
-                          </span>
+                        <div className="text-xs font-bold text-main flex items-center gap-1.5">
+                          <span>{scheme.name} {draw.id}</span>
                           {draw.isDrawnToday && (
                             <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-primary/10 text-primary">
                               Drawn today
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-muted">
+                        <div className="text-[11px] text-muted">
                           {new Date(draw.drawDate).toLocaleDateString("en-IN", {
                             weekday: "short",
                             day: "numeric",
                             month: "short",
-                          })}
+                          })} · 1st: {draw.prizes ? formatINR(draw.prizes.firstPrize.amount) : "Pending"}
                         </div>
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      {draw.isPublished && draw.prizes ? (
-                        <>
-                          <div className="text-xs font-bold text-main font-mono">
-                            {draw.prizes.firstPrize.series} {draw.prizes.firstPrize.number}
-                          </div>
-                          <div className="text-[11px] text-muted">
-                            1st: {draw.prizes.firstPrize.amount >= 10000000 ? `${draw.prizes.firstPrize.amount / 10000000} Cr` : `${draw.prizes.firstPrize.amount / 100000} Lakhs`}
-                          </div>
-                        </>
-                      ) : (
-                        <span className="text-xs text-muted italic">Pending</span>
-                      )}
-                    </div>
+                    <ChevronRight className="w-4 h-4 text-subtle" />
                   </Link>
                 );
               })}
@@ -288,11 +275,11 @@ export function Check() {
           </div>
 
           {/* Your recent tickets */}
-          <div className="bg-surface rounded-3xl p-5 sm:p-6 border border-border shadow-soft space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-main">Your recent tickets</h2>
-              <Link to="/tickets" className="text-xs font-semibold text-primary hover:underline">
-                View all
+          <div className="bg-surface rounded-3xl p-5 sm:p-6 border border-border shadow-soft space-y-3">
+            <div className="flex items-center justify-between pb-1">
+              <h2 className="text-sm font-bold text-main">Your recent tickets</h2>
+              <Link to="/tickets" className="text-xs text-subtle font-medium hover:text-main">
+                {recentTickets.length} recorded
               </Link>
             </div>
 
@@ -304,29 +291,37 @@ export function Check() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {recentTickets.map((tkt) => {
                   const isWin = (tkt.wonAmount || 0) > 0;
+                  const scheme = getScheme(tkt.schemeCode);
                   return (
                     <div
                       key={tkt.id}
-                      className="flex items-center justify-between p-3 rounded-2xl border border-border/50"
+                      className="flex items-center justify-between p-3 rounded-2xl border border-border/60"
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-sm font-bold text-main">
-                          {tkt.ticketString}
-                        </span>
-                        <span className="text-xs text-muted font-mono">{tkt.drawId}</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-main">
+                            {tkt.ticketString}
+                          </span>
+                          <span className="text-[11px] text-subtle">
+                            · {scheme.name} {tkt.drawId}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-muted mt-0.5">
+                          {tkt.result?.tier || (isWin ? "Prize match" : "No winning matches")}
+                        </div>
                       </div>
 
                       <div>
                         {isWin ? (
                           <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-gold-bg text-gold-text border border-gold-border font-mono">
-                            +{formatINR(tkt.wonAmount)}
+                            {formatINR(tkt.wonAmount)}
                           </span>
                         ) : (
-                          <span className="text-xs text-muted font-medium px-2 py-0.5 rounded-full bg-input-box">
-                            No prize
+                          <span className="text-xs text-subtle font-medium px-2 py-0.5 rounded-full bg-input-box">
+                            Not drawn
                           </span>
                         )}
                       </div>

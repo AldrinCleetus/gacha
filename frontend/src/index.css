@@ -1,0 +1,86 @@
+@import "@fontsource/manrope/400.css";
+@import "@fontsource/manrope/500.css";
+@import "@fontsource/manrope/600.css";
+@import "@fontsource/manrope/700.css";
+@import "@fontsource/dm-mono/400.css";
+@import "@fontsource/dm-mono/500.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Light tokens from spec & screenshot */
+  --color-page-bg: #EBF9F3;
+  --color-page-gradient: linear-gradient(180deg, #EDFAF5 0%, #E6F7F0 100%);
+  --color-surface: #FFFFFF;
+  --color-border: #D8EFE4;
+  --color-input-box: #E3F4EC;
+  --color-input-border: #CFE9DD;
+  --color-primary: #05695A;
+  --color-primary-hover: #045448;
+  --color-primary-subtle: rgba(5, 105, 90, 0.12);
+  --color-text: #0F1F1A;
+  --color-muted: #5B6F68;
+  --color-subtle: #89A098;
+  --color-gold-bg: #FDE7B0;
+  --color-gold-text: #8A5A00;
+  --color-gold-border: #F7D78A;
+
+  /* Default scheme colors */
+  --scheme-bg: #E3F4EC;
+  --scheme-border: #CFE9DD;
+  --scheme-text: #05695A;
+}
+
+.dark {
+  /* Dark tokens from spec */
+  --color-page-bg: #0F1A1E;
+  --color-page-gradient: linear-gradient(180deg, #101D22 0%, #0D171A 100%);
+  --color-surface: #162429;
+  --color-border: #1F333A;
+  --color-input-box: #1A2B31;
+  --color-input-border: #243D45;
+  --color-primary: #5CC4AB;
+  --color-primary-hover: #4FB099;
+  --color-primary-subtle: rgba(92, 196, 171, 0.16);
+  --color-text: #E6F2ED;
+  --color-muted: #87A097;
+  --color-subtle: #5B756D;
+  --color-gold-bg: #382C13;
+  --color-gold-text: #E3B957;
+  --color-gold-border: #52401B;
+
+  --scheme-bg: #1A2B31;
+  --scheme-border: #243D45;
+  --scheme-text: #5CC4AB;
+}
+
+body {
+  background: var(--color-page-bg);
+  background-image: var(--color-page-gradient);
+  background-attachment: fixed;
+  color: var(--color-text);
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
+}
+
+/* Tabular digits styling */
+.font-mono, .tabular-nums {
+  font-family: 'DM Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Soft hairline border utility */
+.hairline-border {
+  border: 1px solid var(--color-border);
+}

@@ -1,0 +1,60 @@
+{
+  "schemes": {
+    "W": {
+      "code": "W",
+      "name": "Win-Win",
+      "drawPrefix": "W",
+      "price": 40,
+      "weekday": "Monday",
+      "firstPrize": "₹75,00,000",
+      "theme": {
+        "primary": "#05695A",
+        "bg": "#E3F4EC",
+        "border": "#CFE9DD",
+        "text": "#05695A"
+      }
+    },
+    "S": {
+      "code": "S",
+      "name": "Sthree Sakthi",
+      "drawPrefix": "SS",
+      "price": 40,
+      "weekday": "Tuesday",
+      "firstPrize": "₹75,00,000",
+      "theme": {
+        "primary": "#5B438A",
+        "bg": "#ECE7F5",
+        "border": "#DAD1EC",
+        "text": "#5B438A"
+      }
+    },
+    "A": {
+      "code": "A",
+      "name": "Akshaya",
+      "drawPrefix": "AK",
+      "price": 40,
+      "weekday": "Wednesday",
+      "firstPrize": "₹70,00,000",
+      "theme": {
+        "primary": "#8A5A1B",
+        "bg": "#F5ECE1",
+        "border": "#EAD7C4",
+        "text": "#8A5A1B"
+      }
+    },
+    "K": {
+      "code": "K",
+      "name": "Karunya Plus",
+      "drawPrefix": "KN",
+      "price": 40,
+      "weekday": "Thursday",
+      "firstPrize": "₹80,00,000",
+      "theme": {
+        "primary": "#1B638A",
+        "bg": "#E1EFF5",
+        "border": "#C4DFEA",
+        "text": "#1B638A"
+      }
+    }
+  }
+}

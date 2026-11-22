@@ -12,7 +12,7 @@ export interface TicketGraphicProps {
   price?: number;
   state?: TicketState;
   matchedIndices?: number[];
-  activeJudgeIndex?: number; // character currently being compared (0..7)
+  activeJudgeIndex?: number; // character currently being inspected (0..7)
   size?: "sm" | "md" | "lg" | "responsive";
   className?: string;
 }
@@ -56,43 +56,36 @@ export function TicketGraphic({
   }[size];
 
   return (
-    <div className={`relative select-none ${sizeClasses} ${className}`}>
+    <div className={`relative select-none ${sizeClasses} ${className}`} style={{ willChange: "transform" }}>
       <svg
         viewBox="0 0 500 230"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="w-full h-auto overflow-visible rounded-3xl drop-shadow-md"
+        className="w-full h-auto overflow-visible rounded-3xl filter drop-shadow-md transition-shadow duration-300"
         role="img"
-        aria-label={`Ticket ${parsed.fullTicketString}`}
+        aria-label={`Lottery ticket ${parsed.fullTicketString}`}
       >
         <defs>
-          {/* Subtle paper noise texture */}
-          <filter id="ticketPaperTexture" x="0%" y="0%" width="100%" height="100%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
-            <feColorMatrix type="matrix" values="0 0 0 0 0.9  0 0 0 0 0.9  0 0 0 0 0.9  0 0 0 0.04 0" />
-            <feComposite in2="SourceGraphic" in="glitch" operator="in" />
-          </filter>
-
           {/* Golden glow for wins */}
-          <filter id="winGlow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor="#E3B957" floodOpacity="0.7" />
+          <filter id="ticketGoldGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#E3B957" floodOpacity="0.8" />
           </filter>
 
           {/* Cyan scan beam */}
-          <linearGradient id="scanBeamGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <linearGradient id="ticketScanBeam" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#5CC4AB" stopOpacity="0" />
-            <stop offset="50%" stopColor="#5CC4AB" stopOpacity="0.75" />
+            <stop offset="50%" stopColor="#5CC4AB" stopOpacity="0.85" />
             <stop offset="100%" stopColor="#5CC4AB" stopOpacity="0" />
           </linearGradient>
 
-          {/* Guilloche security pattern */}
-          <pattern id="ticketGuilloche" width="30" height="30" patternUnits="userSpaceOnUse">
+          {/* Clean guilloche security pattern */}
+          <pattern id="guillochePattern" width="24" height="24" patternUnits="userSpaceOnUse">
             <path
-              d="M0 15 Q 7.5 5, 15 15 T 30 15 M0 7.5 Q 7.5 17.5, 15 7.5 T 30 7.5"
+              d="M0 12 Q 6 4, 12 12 T 24 12 M0 6 Q 6 14, 12 6 T 24 6"
               fill="none"
               stroke={scheme.theme.primary}
-              strokeWidth="0.4"
-              strokeOpacity="0.07"
+              strokeWidth="0.5"
+              strokeOpacity="0.08"
             />
           </pattern>
         </defs>
@@ -110,8 +103,8 @@ export function TicketGraphic({
           className="transition-colors duration-300"
         />
 
-        {/* Guilloche watermark */}
-        <rect x="3" y="3" width="494" height="224" rx="22" fill="url(#ticketGuilloche)" />
+        {/* Guilloche security pattern watermark */}
+        <rect x="3" y="3" width="494" height="224" rx="22" fill="url(#guillochePattern)" />
 
         {/* Top Header Ribbon in Scheme Tint */}
         <path
@@ -126,7 +119,7 @@ export function TicketGraphic({
           y="28"
           fill={scheme.theme.text}
           fontSize="13"
-          fontWeight="700"
+          fontWeight="800"
           letterSpacing="1"
           fontFamily="Manrope, system-ui, sans-serif"
         >
@@ -138,7 +131,7 @@ export function TicketGraphic({
           y="41"
           fill={scheme.theme.text}
           fontSize="9"
-          fontWeight="500"
+          fontWeight="600"
           opacity="0.8"
           fontFamily="Manrope, system-ui, sans-serif"
         >
@@ -305,11 +298,11 @@ export function TicketGraphic({
                   fill = "var(--color-gold-bg, #FDE7B0)";
                   stroke = "var(--color-gold-border, #F7D78A)";
                   textFill = "var(--color-gold-text, #8A5A00)";
-                  filter = "url(#winGlow)";
+                  filter = "url(#ticketGoldGlow)";
                 } else {
                   fill = "var(--color-input-box, #E3F4EC)";
                   stroke = "var(--color-input-border, #CFE9DD)";
-                  textFill = "var(--color-subtle, #89A098)"; // softly dim non-matched
+                  textFill = "var(--color-subtle, #89A098)";
                 }
               } else if (state === "lost") {
                 fill = "var(--color-input-box, #E3F4EC)";
@@ -329,7 +322,7 @@ export function TicketGraphic({
                     stroke={stroke}
                     strokeWidth={isMatched || isJudging ? "2" : "1"}
                     filter={filter}
-                    className="transition-all duration-200"
+                    className="transition-colors duration-150"
                   />
                   <text
                     x="16.5"
@@ -348,7 +341,7 @@ export function TicketGraphic({
             })}
           </g>
 
-          {/* Deterministic Full Barcode */}
+          {/* Barcode */}
           <g transform="translate(0, 90)">
             {barcodeBars.map((bar, idx) => (
               <rect
@@ -376,17 +369,17 @@ export function TicketGraphic({
           </g>
         </g>
 
-        {/* Sweep Scan Laser (when state='scanning') */}
+        {/* Laser scan beam */}
         {state === "scanning" && (
           <rect
             x="0"
             y="0"
             width="35"
             height="230"
-            fill="url(#scanBeamGrad)"
-            opacity="0.8"
+            fill="url(#ticketScanBeam)"
+            opacity="0.85"
           >
-            <animate attributeName="x" from="0" to="500" dur="1.6s" repeatCount="indefinite" />
+            <animate attributeName="x" from="0" to="500" dur="1.5s" repeatCount="indefinite" />
           </rect>
         )}
       </svg>

@@ -197,7 +197,7 @@ export function Reveal() {
     ]
   );
 
-  // Main 7-10s Timeline driven by MatchResult
+  // Main Smooth Timeline
   useEffect(() => {
     if (!result) return;
 
@@ -212,19 +212,19 @@ export function Reveal() {
     let isMounted = true;
     const timeouts: NodeJS.Timeout[] = [];
 
-    // Phase 1: Anticipation (0 -> 1400ms)
+    // Phase 1: Anticipation (0 -> 1200ms)
     setPhase("ANTICIPATION");
 
-    // Phase 2: Scan (1400 -> 2800ms)
+    // Phase 2: Scan (1200 -> 2400ms)
     timeouts.push(
       setTimeout(() => {
         if (!isMounted) return;
         setPhase("SCAN");
         if (soundEnabled) sound.playSweep();
-      }, 1400)
+      }, 1200)
     );
 
-    // Phase 3: Judgement (2800ms -> ~6500ms)
+    // Phase 3: Judgement (2400ms -> ~5800ms)
     timeouts.push(
       setTimeout(() => {
         if (!isMounted) return;
@@ -236,7 +236,7 @@ export function Reveal() {
         const judgeNext = () => {
           if (!isMounted) return;
           if (currentIdx > 7) {
-            // Done judging, beat of silence (600-900ms)
+            // Done judging, beat of silence (600-800ms)
             setActiveJudgeIndex(-1);
             setPhase("PAUSE");
 
@@ -245,7 +245,7 @@ export function Reveal() {
                 if (!isMounted) return;
                 setPhase("VERDICT");
                 executeVerdict(result);
-              }, 750)
+              }, 700)
             );
             return;
           }
@@ -261,11 +261,10 @@ export function Reveal() {
             if (soundEnabled) sound.playCharLock(currentIdx, false);
           }
 
-          // Pacing is variable: fast for first couple, slower as matches accumulate, longer pause before final char
           const consecutiveMatches = matches.filter((i) => i <= currentIdx).length;
-          let delay = 320 + consecutiveMatches * 70;
+          let delay = 300 + consecutiveMatches * 60;
           if (currentIdx === 6) {
-            delay += 250; // pause before the final character
+            delay += 200; // gentle anticipation before the 8th character
           }
 
           currentIdx++;
@@ -273,7 +272,7 @@ export function Reveal() {
         };
 
         judgeNext();
-      }, 2800)
+      }, 2400)
     );
 
     return () => {
@@ -296,7 +295,6 @@ export function Reveal() {
   };
 
   const handleShare = () => {
-    // Generate clean canvas sharing snapshot
     const canvas = document.createElement("canvas");
     canvas.width = 600;
     canvas.height = 340;
@@ -333,8 +331,8 @@ export function Reveal() {
   const isWin = (result?.amount || 0) > 0;
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-between py-4 sm:py-8 relative min-h-[580px]">
-      {/* Golden Dim Background for Jackpot */}
+    <div className="flex-1 flex flex-col items-center justify-between py-4 sm:py-8 relative min-h-[560px]">
+      {/* Background Dim for Jackpot */}
       <AnimatePresence>
         {isJackpotDimmed && (
           <motion.div
@@ -366,41 +364,29 @@ export function Reveal() {
         )}
       </div>
 
-      {/* Center 3D Ticket Visual */}
-      <div className="w-full flex-1 flex flex-col items-center justify-center my-6 z-20 px-2">
+      {/* Center Ticket Visual with Smooth 60fps GPU easing */}
+      <div className="w-full flex-1 flex flex-col items-center justify-center my-4 sm:my-6 z-20 px-2">
         <motion.div
-          initial={
-            prefersReduced
-              ? { opacity: 0 }
-              : { opacity: 0, y: 40, rotateX: 14, rotateY: -6, scale: 0.94 }
-          }
-          animate={
-            phase === "ANTICIPATION"
-              ? { opacity: 1, y: 0, rotateX: 8, rotateY: -3, scale: 0.98 }
-              : phase === "SCAN" || phase === "JUDGEMENT" || phase === "PAUSE"
-              ? { opacity: 1, y: 0, rotateX: 0, rotateY: 0, scale: 1 }
-              : result?.kind === "jackpot"
-              ? { scale: [1, 1.05, 1.02], y: -8, transition: { duration: 0.8 } }
-              : result?.kind === "mid"
-              ? { y: -6, scale: 1.02 }
-              : { opacity: 1, y: 0, scale: 1 }
-          }
-          transition={{
-            type: prefersReduced ? "tween" : "spring",
-            stiffness: 240,
-            damping: 24,
-            duration: prefersReduced ? 0.3 : undefined,
+          initial={{ opacity: 0, y: 24, scale: 0.97 }}
+          animate={{
+            opacity: 1,
+            y: phase === "VERDICT" && result?.kind === "jackpot" ? -8 : 0,
+            scale: phase === "VERDICT" && result?.kind === "jackpot" ? 1.02 : 1,
           }}
-          className={`w-full max-w-xl transition-all duration-500 ${
+          transition={{
+            duration: 0.6,
+            ease: [0.16, 1, 0.3, 1],
+          }}
+          className={`w-full max-w-xl transition-all duration-300 ${
             result?.kind === "jackpot" && phase === "VERDICT"
-              ? "drop-shadow-[0_0_40px_rgba(227,185,87,0.5)]"
+              ? "drop-shadow-[0_0_36px_rgba(227,185,87,0.45)]"
               : result?.kind === "mid" && phase === "VERDICT"
-              ? "drop-shadow-[0_0_30px_rgba(91,67,138,0.3)]"
+              ? "drop-shadow-[0_0_24px_rgba(91,67,138,0.25)]"
               : result?.kind === "small" && phase === "VERDICT"
-              ? "drop-shadow-[0_0_24px_rgba(92,196,171,0.3)]"
+              ? "drop-shadow-[0_0_20px_rgba(92,196,171,0.25)]"
               : ""
           }`}
-          style={{ perspective: 1000 }}
+          style={{ willChange: "transform, opacity" }}
         >
           <TicketGraphic
             ticketString={effectiveTicket}
@@ -422,9 +408,9 @@ export function Reveal() {
           />
         </motion.div>
 
-        {/* Truthful Progress Cue under ticket */}
+        {/* Progress Cue under ticket */}
         {phase === "JUDGEMENT" && (
-          <div className="text-xs text-muted font-medium mt-4">
+          <div className="text-xs text-muted font-medium mt-3">
             {lockedIndices.length} of 8 characters matched
           </div>
         )}
@@ -435,9 +421,9 @@ export function Reveal() {
         <AnimatePresence>
           {phase === "VERDICT" && result && (
             <motion.div
-              initial={{ opacity: 0, y: 16, scale: 0.96 }}
+              initial={{ opacity: 0, y: 16, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ type: "spring", stiffness: 350, damping: 25 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
               className="bg-surface rounded-3xl p-6 border border-border shadow-elevated text-center space-y-4"
             >
               {/* Verdict Header Badge */}
@@ -468,7 +454,7 @@ export function Reveal() {
               {result.amount > 0 ? (
                 <div>
                   <div className="text-4xl sm:text-5xl font-black text-main">
-                    <CountUp end={result.amount} duration={result.kind === "jackpot" ? 2800 : 1600} />
+                    <CountUp end={result.amount} duration={result.kind === "jackpot" ? 2400 : 1400} />
                   </div>
                   <p className="text-xs text-muted mt-1">{result.tier} · Draw {draw?.id}</p>
                 </div>

@@ -1,6 +1,5 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef } from "react";
 import { parseTicket } from "@/lib/parser";
-import { motion } from "framer-motion";
 
 interface SegmentedInputProps {
   value: string[]; // 8 characters
@@ -108,91 +107,71 @@ export function SegmentedInput({
   };
 
   return (
-    <div className="w-full flex flex-col items-center select-none">
+    <div className="w-full flex items-center justify-center select-none">
       <div
-        className="flex items-center justify-center gap-1 sm:gap-2 md:gap-3 w-full py-1"
+        className="flex items-center justify-center gap-1.5 sm:gap-2.5"
         role="group"
-        aria-label="Ticket Number Input"
+        aria-label="Lottery Number Input"
       >
         {/* Letters Section (Box 0 & 1) */}
-        <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {[0, 1].map((idx) => {
             const char = value[idx] || "";
-            const isFilled = Boolean(char);
             return (
-              <motion.div
+              <input
                 key={idx}
-                animate={isFilled ? { scale: [1, 1.06, 1] } : { scale: 1 }}
-                transition={{ type: "spring", stiffness: 500, damping: 25 }}
-              >
-                <input
-                  ref={(el) => {
-                    inputRefs.current[idx] = el;
-                  }}
-                  type="text"
-                  maxLength={1}
-                  value={char}
-                  onChange={(e) => handleInput(idx, e)}
-                  onKeyDown={(e) => handleKeyDown(idx, e)}
-                  onPaste={handlePaste}
-                  onFocus={(e) => e.target.select()}
-                  disabled={disabled}
-                  inputMode="text"
-                  autoCapitalize="characters"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck="false"
-                  aria-label={`Character ${idx + 1} of 8 (${idx === 0 ? "Scheme" : "Series"})`}
-                  className={`w-9 h-14 sm:w-16 sm:h-22 md:w-20 md:h-26 text-center text-xl sm:text-3xl md:text-4xl font-bold rounded-2xl md:rounded-3xl border transition-all duration-200 outline-none font-mono ${
-                    isFilled
-                      ? "bg-input-box border-primary/50 text-main shadow-soft"
-                      : "bg-surface border-border text-main hover:border-muted/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
-                  }`}
-                />
-              </motion.div>
+                ref={(el) => {
+                  inputRefs.current[idx] = el;
+                }}
+                type="text"
+                maxLength={1}
+                value={char}
+                onChange={(e) => handleInput(idx, e)}
+                onKeyDown={(e) => handleKeyDown(idx, e)}
+                onPaste={handlePaste}
+                onFocus={(e) => e.target.select()}
+                disabled={disabled}
+                inputMode="text"
+                autoCapitalize="characters"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck="false"
+                aria-label={`Character ${idx + 1} of 8 (${idx === 0 ? "Scheme" : "Series"})`}
+                className="w-9 h-13 sm:w-13 sm:h-17 md:w-15 md:h-19 text-center text-xl sm:text-2xl md:text-3xl font-bold rounded-xl border border-input-border/70 bg-input-box text-main focus:bg-surface focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-150 font-mono shadow-sm"
+              />
             );
           })}
         </div>
 
-        {/* Small Dot Gap Separator */}
-        <div className="flex items-center justify-center px-0.5 sm:px-1 text-muted">
-          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-border" />
+        {/* Small Dot Separator */}
+        <div className="flex items-center justify-center px-1 text-muted">
+          <span className="w-1.5 h-1.5 rounded-full bg-border" />
         </div>
 
         {/* 6 Digit Boxes (Box 2 to 7) */}
-        <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {[2, 3, 4, 5, 6, 7].map((idx) => {
             const char = value[idx] || "";
-            const isFilled = Boolean(char);
             return (
-              <motion.div
+              <input
                 key={idx}
-                animate={isFilled ? { scale: [1, 1.06, 1] } : { scale: 1 }}
-                transition={{ type: "spring", stiffness: 500, damping: 25 }}
-              >
-                <input
-                  ref={(el) => {
-                    inputRefs.current[idx] = el;
-                  }}
-                  type="text"
-                  maxLength={1}
-                  value={char}
-                  onChange={(e) => handleInput(idx, e)}
-                  onKeyDown={(e) => handleKeyDown(idx, e)}
-                  onPaste={handlePaste}
-                  onFocus={(e) => e.target.select()}
-                  disabled={disabled}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  autoComplete="off"
-                  aria-label={`Digit ${idx - 1} of 6`}
-                  className={`w-8 h-14 sm:w-14 sm:h-22 md:w-18 md:h-26 text-center text-xl sm:text-3xl md:text-4xl font-bold rounded-2xl md:rounded-3xl border transition-all duration-200 outline-none font-mono ${
-                    isFilled
-                      ? "bg-input-box border-primary/50 text-main shadow-soft"
-                      : "bg-surface border-border text-main hover:border-muted/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
-                  }`}
-                />
-              </motion.div>
+                ref={(el) => {
+                  inputRefs.current[idx] = el;
+                }}
+                type="text"
+                maxLength={1}
+                value={char}
+                onChange={(e) => handleInput(idx, e)}
+                onKeyDown={(e) => handleKeyDown(idx, e)}
+                onPaste={handlePaste}
+                onFocus={(e) => e.target.select()}
+                disabled={disabled}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="off"
+                aria-label={`Digit ${idx - 1} of 6`}
+                className="w-9 h-13 sm:w-13 sm:h-17 md:w-15 md:h-19 text-center text-xl sm:text-2xl md:text-3xl font-bold rounded-xl border border-input-border/70 bg-input-box text-main focus:bg-surface focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-150 font-mono shadow-sm"
+              />
             );
           })}
         </div>

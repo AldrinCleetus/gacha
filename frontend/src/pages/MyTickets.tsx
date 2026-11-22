@@ -5,7 +5,8 @@ import { SavedTicket } from "@/types";
 import { getScheme } from "@/lib/schemes";
 import { formatINR } from "@/lib/checkTicket";
 import { useCheckStore } from "@/store/useCheckStore";
-import { Search, RotateCcw, Filter, Ticket as TicketIcon } from "lucide-react";
+import { TicketGraphic } from "@/components/ticket/TicketGraphic";
+import { Search, RotateCcw, Ticket as TicketIcon, Trophy, Sparkles } from "lucide-react";
 
 export function MyTickets() {
   const navigate = useNavigate();
@@ -91,7 +92,7 @@ export function MyTickets() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-main">My Tickets</h1>
           <p className="text-xs sm:text-sm text-muted mt-0.5">
-            Every ticket you&apos;ve checked, grouped by day
+            Every ticket checked, rendered with its official lottery card visual
           </p>
         </div>
 
@@ -152,8 +153,8 @@ export function MyTickets() {
         </div>
       </div>
 
-      {/* Tickets Grouped by Day */}
-      <div className="space-y-6">
+      {/* Dynamic Ticket Cards Grouped by Day */}
+      <div className="space-y-8">
         {loading ? (
           <div className="py-20 text-center text-xs text-muted">Loading tickets…</div>
         ) : Object.keys(groupedTickets).length === 0 ? (
@@ -166,67 +167,71 @@ export function MyTickets() {
           </div>
         ) : (
           Object.entries(groupedTickets).map(([dayLabel, dayTickets]) => (
-            <div key={dayLabel} className="space-y-2.5">
+            <div key={dayLabel} className="space-y-3">
               <div className="text-xs font-bold text-muted uppercase tracking-wider px-1">
                 {dayLabel}
               </div>
 
-              <div className="space-y-2">
+              {/* Grid of Dynamic Ticket Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {dayTickets.map((t) => {
-                  const scheme = getScheme(t.schemeCode);
                   const isWin = t.wonAmount > 0;
+                  const scheme = getScheme(t.schemeCode);
 
                   return (
                     <div
                       key={t.id}
-                      className="p-3.5 sm:p-4 rounded-2xl bg-surface border border-border shadow-soft flex items-center justify-between gap-3 hover:border-primary/40 transition-colors"
+                      className="bg-surface rounded-3xl p-4 border border-border shadow-soft flex flex-col justify-between gap-3 hover:border-primary/40 transition-all group"
                     >
-                      {/* Left: Mini ticket chip + Scheme info */}
-                      <div className="flex items-center gap-3">
-                        {/* Mini Ticket Chip in scheme tint with mono number */}
-                        <div
-                          className="px-2.5 py-1.5 rounded-xl font-mono text-xs font-bold shrink-0 border"
-                          style={{
-                            backgroundColor: scheme.theme.bg,
-                            color: scheme.theme.text,
-                            borderColor: scheme.theme.border,
-                          }}
-                        >
-                          {t.ticketString}
-                        </div>
-
-                        <div>
-                          <div className="text-xs font-semibold text-main flex items-center gap-1.5">
-                            <span>{scheme.name}</span>
-                            <span className="text-subtle font-mono text-[11px] font-normal">
-                              {t.drawId}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-muted">
-                            {t.result?.tier || "Checked ticket"}
-                          </div>
-                        </div>
+                      {/* Dynamic Ticket Visual for this ticket */}
+                      <div className="w-full">
+                        <TicketGraphic
+                          ticketString={t.ticketString}
+                          schemeCode={t.schemeCode}
+                          drawId={t.drawId}
+                          drawDate={t.drawDate}
+                          price={t.cost}
+                          state={isWin ? "won" : "lost"}
+                          matchedIndices={t.result?.matchedIndices || []}
+                          size="responsive"
+                        />
                       </div>
 
-                      {/* Right: Prize / No prize chip + Replay button */}
-                      <div className="flex items-center gap-3">
-                        {isWin ? (
-                          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-gold-bg text-gold-text border border-gold-border font-mono">
-                            +{formatINR(t.wonAmount)}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted font-medium px-2 py-0.5 rounded-full bg-input-box">
-                            No prize
-                          </span>
-                        )}
+                      {/* Card Info & Replay Action Bar */}
+                      <div className="flex items-center justify-between pt-2 border-t border-border/60 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          {isWin ? (
+                            <span className="font-bold text-gold-text flex items-center gap-1">
+                              <Trophy className="w-3.5 h-3.5" />
+                              {t.result?.tier || "Prize Winner"}
+                            </span>
+                          ) : (
+                            <span className="text-muted">
+                              {t.result?.tier || "No prize"}
+                            </span>
+                          )}
+                        </div>
 
-                        <button
-                          onClick={() => handleReplay(t)}
-                          title="Replay reveal"
-                          className="p-1.5 rounded-xl text-muted hover:text-main hover:bg-input-box transition-colors"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-2.5">
+                          {isWin ? (
+                            <span className="font-mono font-bold px-2.5 py-0.5 rounded-full bg-gold-bg text-gold-text border border-gold-border">
+                              +{formatINR(t.wonAmount)}
+                            </span>
+                          ) : (
+                            <span className="text-subtle font-mono text-[11px] px-2 py-0.5 rounded-full bg-input-box">
+                              ₹0
+                            </span>
+                          )}
+
+                          <button
+                            onClick={() => handleReplay(t)}
+                            title="Replay reveal animation"
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-input-box hover:bg-input-border text-muted hover:text-main text-xs font-semibold transition-colors"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Replay</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

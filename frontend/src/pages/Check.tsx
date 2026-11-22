@@ -82,7 +82,7 @@ export function Check() {
     // Screen reader announcement
     const live = document.getElementById("a11y-live-region");
     if (live) {
-      live.textContent = `Checking ticket ${parsed.fullTicketString} against draw ${activeDraw.id}`;
+      live.textContent = `Checking lottery ${parsed.fullTicketString} against draw ${activeDraw.id}`;
     }
 
     navigate("/check/reveal");
@@ -113,25 +113,25 @@ export function Check() {
       {/* ABOVE THE FOLD: Hero Check Input */}
       <section className="min-h-[calc(100vh-140px)] flex flex-col items-center justify-center text-center py-6 sm:py-8 relative">
         <div className="w-full max-w-xl mx-auto space-y-4">
-          {/* Scheme Chip Pill (slides in above heading when letter typed) */}
+          {/* Scheme Chip Pill */}
           <div className="h-7 flex items-center justify-center">
-            {firstLetter && <SchemeChip firstLetter={firstLetter} />}
+            {firstLetter && <SchemeChip firstLetter={firstLetter} drawId={activeDraw?.id} />}
           </div>
 
-          {/* Heading & Subtitle exactly matching screenshot */}
+          {/* Heading & Subtitle exactly matching user spec */}
           <div className="space-y-1.5">
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-main">
-              Check your ticket
+              Check your lottery
             </h1>
             <p className="text-xs sm:text-sm text-muted font-normal max-w-md mx-auto">
               Enter your 8-character ticket series and number to see today&apos;s result.
             </p>
           </div>
 
-          {/* Giant Card matching the screenshot */}
+          {/* Giant Card matching Image 0 */}
           <div className="w-full bg-surface rounded-3xl sm:rounded-4xl p-5 sm:p-8 border border-border shadow-soft space-y-5 my-2">
             {/* Segmented 8-char Input */}
-            <div className="w-full">
+            <div className="w-full py-1">
               <SegmentedInput
                 value={characters}
                 onChange={setCharacters}
@@ -140,9 +140,9 @@ export function Check() {
             </div>
 
             {/* Scheduled Draw row */}
-            <div className="flex items-center justify-between text-xs text-muted pt-1">
+            <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-muted pt-1 gap-2">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-main">Scheduled Draw:</span>
+                <span className="font-medium text-muted">Scheduled Draw:</span>
                 <div className="relative inline-block">
                   <select
                     value={selectedDrawId}
@@ -160,6 +160,10 @@ export function Check() {
                   <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
                 </div>
               </div>
+
+              <div className="text-[11px] text-subtle font-mono">
+                Kerala Std Time 15:00
+              </div>
             </div>
 
             {/* Full-width Green Button */}
@@ -167,10 +171,10 @@ export function Check() {
               whileTap={{ scale: 0.98 }}
               onClick={handleCheck}
               disabled={!isComplete}
-              className={`w-full py-4 px-6 rounded-2xl font-bold text-sm sm:text-base shadow-soft transition-all duration-200 flex items-center justify-center gap-2 ${
+              className={`w-full py-3.5 sm:py-4 px-6 rounded-2xl font-bold text-sm sm:text-base shadow-soft transition-all duration-200 flex items-center justify-center gap-2 ${
                 isComplete
                   ? "bg-primary hover:bg-primary-hover text-white shadow-card cursor-pointer"
-                  : "bg-surface border border-border text-subtle cursor-not-allowed opacity-60"
+                  : "bg-input-box border border-input-border text-subtle cursor-not-allowed opacity-60"
               }`}
             >
               <span>Check ticket</span>
@@ -212,7 +216,7 @@ export function Check() {
           </div>
         </div>
 
-        {/* Scroll cue matching screenshot */}
+        {/* Scroll cue matching Image 0 */}
         <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-[11px] text-subtle">
           <span>Scroll for recent results &amp; tracker</span>
           <ArrowDown className="w-3.5 h-3.5 animate-bounce" />

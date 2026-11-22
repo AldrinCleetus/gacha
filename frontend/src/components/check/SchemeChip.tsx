@@ -4,9 +4,10 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface SchemeChipProps {
   firstLetter: string;
+  drawId?: string;
 }
 
-export function SchemeChip({ firstLetter }: SchemeChipProps) {
+export function SchemeChip({ firstLetter, drawId = "W-790" }: SchemeChipProps) {
   if (!firstLetter) return null;
 
   const scheme = getScheme(firstLetter);
@@ -14,22 +15,16 @@ export function SchemeChip({ firstLetter }: SchemeChipProps) {
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: -8, scale: 0.95 }}
+        initial={{ opacity: 0, y: -6, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -8, scale: 0.95 }}
-        transition={{ type: "spring", stiffness: 450, damping: 25 }}
-        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold select-none shadow-soft"
-        style={{
-          backgroundColor: scheme.theme.bg,
-          color: scheme.theme.text,
-          border: `1px solid ${scheme.theme.border}`,
-        }}
+        exit={{ opacity: 0, y: -6, scale: 0.96 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+        className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-semibold select-none bg-input-box border border-input-border text-main shadow-soft"
       >
-        <span className="font-bold">{scheme.name}</span>
-        <span className="opacity-40">·</span>
-        <span>₹{scheme.price} per ticket</span>
-        <span className="opacity-40">·</span>
-        <span className="opacity-80">{scheme.weekday} draw</span>
+        <span className="w-2 h-2 rounded-full bg-primary" />
+        <span className="font-bold">{scheme.name} {drawId}</span>
+        <span className="text-subtle">·</span>
+        <span className="text-muted">₹{scheme.price} per ticket</span>
       </motion.div>
     </AnimatePresence>
   );

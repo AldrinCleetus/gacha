@@ -1,0 +1,92 @@
+{
+  "schemes": {
+    "W": {
+      "code": "W",
+      "name": "Win-Win",
+      "drawPrefix": "W",
+      "price": 40,
+      "weekday": "Monday",
+      "firstPrize": "₹75,00,000",
+      "tagline": "Weekly Monday Draw",
+      "theme": {
+        "primary": "#059669",
+        "primaryLight": "#10b981",
+        "secondary": "#047857",
+        "accent": "#34d399",
+        "bgLight": "#ecfdf5",
+        "bgDark": "#022c22",
+        "surfaceLight": "#f0fdf4",
+        "surfaceDark": "#064e3b",
+        "borderLight": "#a7f3d0",
+        "borderDark": "#065f46",
+        "glow": "rgba(16, 185, 129, 0.3)"
+      }
+    },
+    "S": {
+      "code": "S",
+      "name": "Sthree Sakthi",
+      "drawPrefix": "SS",
+      "price": 40,
+      "weekday": "Tuesday",
+      "firstPrize": "₹75,00,000",
+      "tagline": "Weekly Tuesday Draw",
+      "theme": {
+        "primary": "#7c3aed",
+        "primaryLight": "#8b5cf6",
+        "secondary": "#6d28d9",
+        "accent": "#a78bfa",
+        "bgLight": "#f5f3ff",
+        "bgDark": "#2e1065",
+        "surfaceLight": "#faf5ff",
+        "surfaceDark": "#4c1d95",
+        "borderLight": "#ddd6fe",
+        "borderDark": "#5b21b6",
+        "glow": "rgba(139, 92, 246, 0.3)"
+      }
+    },
+    "A": {
+      "code": "A",
+      "name": "Akshaya",
+      "drawPrefix": "AK",
+      "price": 40,
+      "weekday": "Wednesday",
+      "firstPrize": "₹70,00,000",
+      "tagline": "Weekly Wednesday Draw",
+      "theme": {
+        "primary": "#d97706",
+        "primaryLight": "#f59e0b",
+        "secondary": "#b45309",
+        "accent": "#fbbf24",
+        "bgLight": "#fffbeb",
+        "bgDark": "#451a03",
+        "surfaceLight": "#fffdfa",
+        "surfaceDark": "#78350f",
+        "borderLight": "#fde68a",
+        "borderDark": "#92400e",
+        "glow": "rgba(245, 158, 11, 0.3)"
+      }
+    },
+    "K": {
+      "code": "K",
+      "name": "Karunya Plus",
+      "drawPrefix": "KN",
+      "price": 40,
+      "weekday": "Thursday",
+      "firstPrize": "₹80,00,000",
+      "tagline": "Weekly Thursday Draw",
+      "theme": {
+        "primary": "#0891b2",
+        "primaryLight": "#06b6d4",
+        "secondary": "#0e7490",
+        "accent": "#22d3ee",
+        "bgLight": "#ecfeff",
+        "bgDark": "#083344",
+        "surfaceLight": "#f0fdfa",
+        "surfaceDark": "#164e63",
+        "borderLight": "#a5f3fc",
+        "borderDark": "#155e75",
+        "glow": "rgba(6, 182, 212, 0.3)"
+      }
+    }
+  }
+}

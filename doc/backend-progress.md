@@ -11,7 +11,7 @@ This document tracks the incremental implementation of the gacha backend accordi
 | **F0** | Scaffold + Docker (Monorepo, Compose, Health API, Worker) | **Done** | `docker compose up` brings up postgres, migrate, api, worker. `GET /health` returns 200 with DB status. Worker logs boot. |
 | **F1** | Database schema, migrations & seed for 7 schemes | **Done** | `migrate` runs against clean DB; 8 tables created; 7 schemes seeded; verified via psql queries. |
 | **F2** | Shared package: ParsedDraw, parseTicket, checkTicket | **Done** | `checkTicket` and `parseTicket` unit tested (34 tests passing); CLI `pnpm check-ticket` verified against fixture. |
-| **F3** | Source adapter interface + Onmanorama adapter | Todo | Pending |
+| **F3** | Source adapter interface + Onmanorama adapter | **Done** | Real HTML fixtures saved; listing + article parser built; PoliteHttpClient with rate-limiting, ETag/304 cache, and polite User-Agent; 44 tests passing; CLI `pnpm ingest:onmanorama` verified on live URL and fixture. |
 | **F4** | Observations + validation rules + raw payload storage | Todo | Pending |
 | **F5** | Draws + publishing (single-source behind config flag) | Todo | Pending |
 | **F6** | Public read API with OpenAPI/Swagger & ticket check | Todo | Pending |
@@ -200,3 +200,79 @@ pnpm check-ticket "wa-584921" packages/shared/fixtures/sample-draw.json
 
 ### Next Feature
 - **F3: Source Adapter Interface + Onmanorama Adapter**: Fetch the topic listing page and live result articles, save real HTML fixtures into `packages/sources/onmanorama/fixtures/`, write the Cheerio parser, assert exact `ParsedDraw` output in tests, respect `robots.txt`, rate limiting (~1 req/few secs per host), and add CLI `pnpm ingest:onmanorama --url <url>`.
+
+---
+
+## Feature 3: Source Adapter Interface + Onmanorama Adapter
+
+### What Was Built
+- **Source Adapter Interface (`packages/sources/src/types.ts`)**:
+  - `SourceAdapter`: Contract with `id`, `name`, `discover(): Promise<DrawRef[]>`, `fetchAndParse(refOrUrl): Promise<ParsedDraw>`.
+  - `HttpResponse`, `HttpOptions` interfaces.
+- **Polite HTTP Client (`packages/sources/src/http.ts`)**:
+  - Host-based rate limiting (enforces >=2000ms delay between consecutive requests per host).
+  - Clear, informative User-Agent (`gacha-bot/1.0 (+https://github.com/project-gacha; bot@gacha.local)`).
+  - Conditional HTTP requests with `If-None-Match` (ETag) and `If-Modified-Since` (Last-Modified).
+  - In-memory cache handling `304 Not Modified` responses transparently.
+  - AbortController timeout handling (defaults to 15s).
+- **Real Fixtures Saved (`packages/sources/src/onmanorama/fixtures/`)**:
+  - `listing.html` (210 KB): Real HTML from Onmanorama lottery topic listing (`https://www.onmanorama.com/topic/general-topics/78/kerala-lottery-results.html`).
+  - `samrudhi-sm-82.html` (376 KB): Real HTML from live result article (`https://www.onmanorama.com/news/kerala/2026/11/22/samrudhi-sm-82-lottery-results-kerala-1-crore-first-prize-list-winners-live.html`).
+- **Onmanorama Parser (`packages/sources/src/onmanorama/parser.ts`)**:
+  - `parseListing(html)`: Extracts `DrawRef[]` sorted newest first. Discovered draws match all 7 weekly schemes (`SM-82`, `KR-777`, `SK-78`, `KN-650`, `DL-78`, `SS-546`, `BT-80`), validating scheme codes.
+  - `parseArticle(html, sourceUrl?)`: Parses Onmanorama lottery articles into exact `ParsedDraw` structures:
+    - Extracts `schemeName`, `schemeCode`, `drawCode`, `drawDate` from canonical URL or titles/headings.
+    - Preserves inline paragraph breaks (`<br>` -> `\n`) to parse multi-tier paragraphs reliably.
+    - Extracts 1st prize (full ticket: series + 6 digits).
+    - Extracts consolation prize (amount and matchType).
+    - Extracts 2nd and 3rd prizes (full tickets).
+    - Extracts 4th through 9th prizes (last 4-digit numbers, e.g. 150 numbers for 9th prize).
+    - Parses currency representations (`"1 cr"`, `"25 lakh"`, `"5000"`, `"500"`, `"100"`).
+    - Generates SHA-256 `contentHash` of the raw HTML.
+    - Validates strictly against `ParsedDrawSchema`.
+  - Robust error handling: Throws typed `ParseError` if 1st prize is missing, ticket numbers are empty, or draw metadata cannot be resolved. Never guesses.
+- **Onmanorama Adapter (`packages/sources/src/onmanorama/adapter.ts`)**:
+  - Implements `SourceAdapter` using `PoliteHttpClient` and parser functions.
+- **CLI Utility (`packages/sources/src/onmanorama/cli.ts`)**:
+  - Script in `backend/package.json`: `"ingest:onmanorama": "tsx packages/sources/src/onmanorama/cli.ts"`
+  - Supports `--url <url>` and `--fixture <path>`. Prints `ParsedDraw` JSON to stdout and does NOT write to database.
+- **Unit Tests (`packages/sources/src/__tests__/onmanorama.test.ts`)**:
+  - 10 comprehensive tests covering `parseAmount`, `parseListing`, exact `parseArticle` assertions, and `ParseError` scenarios.
+  - All 44 tests passing across the monorepo.
+  - Lint and typecheck passing with 0 errors.
+
+### Verification Steps
+```bash
+# 1. Run all tests across the monorepo
+cd backend
+pnpm test
+
+# 2. Run lint and typecheck
+pnpm lint
+pnpm typecheck
+
+# 3. Test CLI against the real saved HTML fixture (offline)
+pnpm ingest:onmanorama --fixture packages/sources/src/onmanorama/fixtures/samrudhi-sm-82.html
+
+# 4. Test CLI against the live Onmanorama URL (network)
+pnpm ingest:onmanorama --url https://www.onmanorama.com/news/kerala/2026/11/22/samrudhi-sm-82-lottery-results-kerala-1-crore-first-prize-list-winners-live.html
+
+# 5. Verify running docker stack
+docker compose ps
+curl http://localhost:3001/health
+```
+
+### Decisions Made & Deviations from Design
+1. **Preserving `<br>` in Cheerio**:
+   Onmanorama groups the 1st prize, consolation prize, 2nd prize, and 3rd prize inside a single `<p>` separated by `<br>` tags. Replacing `<br>` with `\n` before line extraction isolates each tier cleanly without fragile DOM traversal.
+2. **Dynamic Entry Format Detection**:
+   Tiers are categorized dynamically: entries matching `[A-Z]{2}\s*\d{6}` are classified as `full`, entries with `\d{4}` are classified as `last4`, and consolation is classified as `consolation`. This makes the parser resilient across different lottery formats (weekly vs bumper).
+3. **Confirmed Friday Scheme Code 'SK'**:
+   The Onmanorama listing fixture explicitly contains `/news/kerala/2026/11/20/suvarna-keralam-sk-78-...` and `sk-77`, confirming that Friday's Suvarna Keralam scheme code is indeed `SK`.
+
+### Known Issues
+- None.
+
+### Next Feature
+- **F4: Observations + Validation**: Store raw payloads via `RawStore`, write `source_observations`, implement validation rules from the design (draw date and weekday match, expected tiers and counts from scheme structure config, ticket formats, descending amounts), record failures without throwing away, add CLI to ingest one URL into database.
+

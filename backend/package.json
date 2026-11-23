@@ -1,0 +1,29 @@
+{
+  "name": "gacha-backend",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "gacha Kerala lottery result checker backend monorepo",
+  "scripts": {
+    "build": "pnpm -r --filter=!gacha-backend build",
+    "lint": "eslint .",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "up": "docker compose up -d",
+    "down": "docker compose down",
+    "logs": "docker compose logs -f",
+    "migrate": "docker compose run --rm migrate",
+    "psql": "docker compose exec postgres psql -U postgres -d gacha",
+    "reset-db": "docker compose down -v && docker compose up -d postgres && docker compose run --rm migrate"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "@typescript-eslint/eslint-plugin": "^8.16.0",
+    "@typescript-eslint/parser": "^8.16.0",
+    "eslint": "^9.15.0",
+    "prettier": "^3.3.3",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.5"
+  }
+}

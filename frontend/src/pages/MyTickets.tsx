@@ -172,8 +172,8 @@ export function MyTickets() {
                 {dayLabel}
               </div>
 
-              {/* Grid of Dynamic Ticket Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* List of Dynamic Lottery Cards */}
+              <div className="flex flex-col gap-6 max-w-2xl mx-auto w-full">
                 {dayTickets.map((t) => {
                   const isWin = t.wonAmount > 0;
                   const scheme = getScheme(t.schemeCode);
@@ -181,59 +181,46 @@ export function MyTickets() {
                   return (
                     <div
                       key={t.id}
-                      className="bg-surface rounded-3xl p-4 border border-border shadow-soft flex flex-col justify-between gap-3 hover:border-primary/40 transition-all group"
+                      className="group flex flex-col gap-2 w-full"
                     >
-                      {/* Dynamic Ticket Visual for this ticket */}
-                      <div className="w-full">
-                        <TicketGraphic
-                          ticketString={t.ticketString}
-                          schemeCode={t.schemeCode}
-                          drawId={t.drawId}
-                          drawDate={t.drawDate}
-                          price={t.cost}
-                          state={isWin ? "won" : "lost"}
-                          matchedIndices={t.result?.matchedIndices || []}
-                          tierLabel={t.result?.tier}
-                          seriesLabel={`${scheme.name} series ${t.series}`}
-                          size="responsive"
-                        />
-                      </div>
+                      {/* Dynamic Ticket Visual */}
+                      <TicketGraphic
+                        ticketString={t.ticketString}
+                        schemeCode={t.schemeCode}
+                        drawId={t.drawId}
+                        drawDate={t.drawDate}
+                        price={t.cost}
+                        state={isWin ? "won" : "lost"}
+                        matchedIndices={t.result?.matchedIndices || []}
+                        tierLabel={t.result?.tier}
+                        seriesLabel={`${scheme.name} series ${t.series}`}
+                        size="responsive"
+                      />
 
                       {/* Card Info & Replay Action Bar */}
-                      <div className="flex items-center justify-between pt-2 border-t border-border/60 text-xs">
-                        <div className="flex items-center gap-1.5">
+                      <div className="flex items-center justify-between px-2 text-xs">
+                        <div className="flex items-center gap-2">
                           {isWin ? (
-                            <span className="font-bold text-gold-text flex items-center gap-1">
-                              <Trophy className="w-3.5 h-3.5" />
-                              {t.result?.tier || "Prize Winner"}
+                            <span className="font-bold text-gold-text flex items-center gap-1.5 px-3 py-1 rounded-full bg-gold-bg/60 border border-gold-border shadow-2xs">
+                              <Trophy className="w-3.5 h-3.5 text-gold-text" />
+                              <span>{t.result?.tier || "Prize Winner"}</span>
+                              <span className="font-mono font-black ml-1">+{formatINR(t.wonAmount)}</span>
                             </span>
                           ) : (
-                            <span className="text-muted">
+                            <span className="text-muted px-3 py-1 rounded-full bg-input-box/80 border border-border">
                               {t.result?.tier || "No prize"}
                             </span>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2.5">
-                          {isWin ? (
-                            <span className="font-mono font-bold px-2.5 py-0.5 rounded-full bg-gold-bg text-gold-text border border-gold-border">
-                              +{formatINR(t.wonAmount)}
-                            </span>
-                          ) : (
-                            <span className="text-subtle font-mono text-[11px] px-2 py-0.5 rounded-full bg-input-box">
-                              ₹0
-                            </span>
-                          )}
-
-                          <button
-                            onClick={() => handleReplay(t)}
-                            title="Replay reveal animation"
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-input-box hover:bg-input-border text-muted hover:text-main text-xs font-semibold transition-colors"
-                          >
-                            <RotateCcw className="w-3 h-3" />
-                            <span>Replay</span>
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleReplay(t)}
+                          title="Replay reveal animation"
+                          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface hover:bg-input-box border border-border text-muted hover:text-main text-xs font-semibold shadow-soft transition-colors cursor-pointer"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Replay</span>
+                        </button>
                       </div>
                     </div>
                   );

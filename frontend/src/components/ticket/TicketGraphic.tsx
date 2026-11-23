@@ -73,7 +73,7 @@ export function TicketGraphic({
   const barcodeBars = useMemo(() => {
     const raw = parsed.fullTicketString.replace(/[^A-Z0-9]/g, "");
     const bars: Array<{ width: number; gap: number }> = [];
-    for (let i = 0; i < 28; i++) {
+    for (let i = 0; i < 24; i++) {
       const code = raw.charCodeAt(i % raw.length) || 65;
       const width = (code % 3) + 1.2;
       const gap = ((code * 3) % 4) + 1.5;
@@ -125,45 +125,45 @@ export function TicketGraphic({
 
   return (
     <div
-      className={`relative bg-surface rounded-2xl sm:rounded-3xl border border-border shadow-elevated select-none transition-colors duration-200 overflow-hidden ${sizeClasses} ${className}`}
+      className={`relative bg-surface rounded-2xl sm:rounded-3xl border border-border shadow-soft select-none transition-colors duration-200 overflow-hidden w-full ${sizeClasses} ${className}`}
     >
-      <div className="flex w-full min-h-[220px] sm:min-h-[250px]">
-        {/* 1. Left Counterfoil Stub (~30% width) */}
-        <div className="w-[32%] min-w-[150px] sm:min-w-[185px] p-4 sm:p-5 flex flex-col justify-between border-r-2 border-dashed border-border/80 relative bg-surface">
+      <div className="flex w-full min-h-[190px] sm:min-h-[230px]">
+        {/* 1. Left Counterfoil Stub (~28-30% width) */}
+        <div className="w-[30%] min-w-[125px] sm:min-w-[165px] p-3 sm:p-5 flex flex-col justify-between border-r-2 border-dashed border-border/80 relative bg-surface">
           {/* Top Row: WEEKLY DRAW & #790 */}
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-xs font-bold text-muted tracking-wider uppercase font-sans">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[9px] sm:text-xs font-bold text-muted tracking-wider uppercase font-sans truncate">
               WEEKLY DRAW
             </span>
-            <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 font-mono">
+            <span className="text-[11px] sm:text-sm font-bold text-slate-700 dark:text-slate-300 font-mono shrink-0">
               {drawNum}
             </span>
           </div>
 
           {/* Scheme Name & Calendar Date */}
-          <div className="space-y-1 my-1">
-            <h2 className="text-xl sm:text-2xl font-black text-main tracking-tight uppercase font-sans">
+          <div className="space-y-0.5 my-1">
+            <h2 className="text-base sm:text-xl md:text-2xl font-black text-main tracking-tight uppercase font-sans truncate">
               {scheme.name}
             </h2>
-            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-muted font-medium font-sans">
-              <Calendar className="w-3.5 h-3.5 text-muted shrink-0" />
+            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted font-medium font-sans">
+              <Calendar className="w-3 h-3 text-muted shrink-0" />
               <span className="truncate">{displayDate}</span>
             </div>
           </div>
 
           {/* Ticket Reference Header & Code */}
           <div className="space-y-0.5">
-            <span className="text-[9px] sm:text-[10px] font-bold text-subtle tracking-wider uppercase block font-sans">
+            <span className="text-[8px] sm:text-[10px] font-bold text-subtle tracking-wider uppercase block font-sans">
               TICKET REFERENCE
             </span>
-            <span className="font-mono text-xs sm:text-sm font-black text-main block tracking-wide">
+            <span className="font-mono text-[11px] sm:text-sm font-black text-main block tracking-wide truncate">
               {refCode}
             </span>
           </div>
 
           {/* Barcode & Subtle Watermark Motif */}
           <div className="relative pt-1">
-            <div className="flex items-end h-7 sm:h-8 gap-[1.5px] overflow-hidden w-full opacity-85">
+            <div className="flex items-end h-6 sm:h-7 gap-[1.5px] overflow-hidden w-full opacity-85">
               {barcodeBars.map((bar, idx) => (
                 <div
                   key={idx}
@@ -175,7 +175,7 @@ export function TicketGraphic({
 
             {/* Subtle organic watermark leaf in bottom-right corner of stub */}
             <svg
-              className="absolute right-0 bottom-0 w-12 h-12 text-slate-300 dark:text-slate-700 pointer-events-none opacity-40 -mr-2 -mb-2"
+              className="absolute right-0 bottom-0 w-10 h-10 sm:w-12 sm:h-12 text-slate-300 dark:text-slate-700 pointer-events-none opacity-40 -mr-2 -mb-2"
               viewBox="0 0 60 60"
               fill="none"
               stroke="currentColor"
@@ -188,32 +188,32 @@ export function TicketGraphic({
 
           {/* Perforation Circular Notches at Top & Bottom */}
           <div
-            className="absolute top-0 -mt-2.5 -right-2.5 w-5 h-5 rounded-full bg-page border border-border z-10"
+            className="absolute top-0 -mt-2 -right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-page border border-border z-10"
             aria-hidden="true"
           />
           <div
-            className="absolute bottom-0 -mb-2.5 -right-2.5 w-5 h-5 rounded-full bg-page border border-border z-10"
+            className="absolute bottom-0 -mb-2 -right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-page border border-border z-10"
             aria-hidden="true"
           />
         </div>
 
-        {/* 2. Right Main Ticket Body (~68% width) */}
-        <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between gap-3 sm:gap-4 relative bg-surface">
+        {/* 2. Right Main Ticket Body (~70% width) */}
+        <div className="flex-1 min-w-0 p-3 sm:p-5 flex flex-col justify-between gap-2 sm:gap-3.5 relative bg-surface">
           {/* Top Header: REGISTERED SERIAL NUMBER & Confirmed Pill */}
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-xs font-bold text-muted tracking-wider uppercase font-sans">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[9px] sm:text-xs font-bold text-muted tracking-wider uppercase font-sans truncate">
               REGISTERED SERIAL NUMBER
             </span>
 
             {/* Confirmed Pill Badge: Crisp Lucide Lock + Confirmed Text with generous gap */}
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold shadow-2xs">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 text-[10px] sm:text-[11px] font-bold shadow-2xs shrink-0">
               <Lock className="w-3 h-3 text-emerald-700 dark:text-emerald-400 shrink-0" />
               <span>Confirmed</span>
             </div>
           </div>
 
           {/* 8 Squircle Character Boxes */}
-          <div className="grid grid-cols-8 gap-1.5 sm:gap-2.5 w-full my-auto">
+          <div className="grid grid-cols-8 gap-1 sm:gap-2 w-full my-auto">
             {chars.map((char, i) => {
               const isMatched = matchedIndices.includes(i);
               const isJudging = activeJudgeIndex === i;
@@ -235,26 +235,26 @@ export function TicketGraphic({
               return (
                 <div
                   key={i}
-                  className={`aspect-[4/5] rounded-xl sm:rounded-2xl border flex items-center justify-center font-mono font-extrabold text-xl sm:text-2xl md:text-3xl transition-all duration-150 ${boxClasses}`}
+                  className={`aspect-[4/5] rounded-lg sm:rounded-xl border flex items-center justify-center font-mono font-extrabold text-sm sm:text-xl md:text-2xl transition-all duration-150 min-w-0 ${boxClasses}`}
                 >
-                  <span>{char || "-"}</span>
+                  <span className="truncate">{char || "-"}</span>
                 </div>
               );
             })}
           </div>
 
           {/* Status Row under Character Boxes: Positions Matched & Series */}
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-1.5">
+          <div className="flex items-center justify-between gap-2 pt-0.5 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0 truncate">
               <CheckCircle2
-                className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 transition-colors ${
+                className={`w-3.5 h-3.5 shrink-0 transition-colors ${
                   statusInfo.isPositive
                     ? "text-emerald-600 dark:text-emerald-400"
                     : "text-muted"
                 }`}
               />
               <span
-                className={`text-xs sm:text-sm font-bold transition-colors ${
+                className={`text-[11px] sm:text-xs font-bold truncate transition-colors ${
                   statusInfo.isPositive
                     ? "text-emerald-700 dark:text-emerald-400"
                     : "text-muted"
@@ -264,23 +264,23 @@ export function TicketGraphic({
               </span>
             </div>
 
-            <span className="font-mono text-xs sm:text-sm font-bold text-muted">
+            <span className="font-mono text-[11px] sm:text-xs font-bold text-muted shrink-0 text-right">
               {effectiveSeries}
             </span>
           </div>
 
           {/* Security Row: Cryptographically matched sequence & Prize Tier */}
-          <div className="flex items-center justify-between text-[11px] sm:text-xs">
-            <div className="flex items-center gap-1.5 font-semibold text-slate-600 dark:text-slate-400">
-              <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span>
+          <div className="flex items-center justify-between gap-2 text-[10px] sm:text-[11px] min-w-0">
+            <div className="flex items-center gap-1.5 font-semibold text-slate-600 dark:text-slate-400 min-w-0 truncate">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span className="truncate">
                 {statusInfo.isPositive
                   ? "Cryptographically matched sequence"
                   : "Sequence verified against draw"}
               </span>
             </div>
 
-            <span className="font-mono font-bold text-slate-600 dark:text-slate-400">
+            <span className="font-mono font-bold text-slate-600 dark:text-slate-400 shrink-0 text-right">
               {effectiveTier}
             </span>
           </div>

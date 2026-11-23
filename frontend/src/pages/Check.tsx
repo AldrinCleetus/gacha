@@ -468,34 +468,40 @@ export function Check({ initialChecking = false }: CheckProps) {
       {/* HERO SECTION */}
       <section className="min-h-[calc(100vh-140px)] flex flex-col items-center justify-center text-center py-6 sm:py-10 md:py-12 relative z-20">
         <div className="w-full max-w-4xl mx-auto space-y-4 sm:space-y-6">
-          {/* Top Status & Controls Row */}
-          <div className="w-full flex items-center justify-between min-h-[32px] px-2">
-            <div>
-              {isChecking ? (
-                <motion.span
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-xs font-semibold text-muted bg-surface/80 px-3 py-1 rounded-full border border-border backdrop-blur-sm"
-                >
-                  {revealPhase === "MORPH" && `Preparing draw ${activeDraw?.id}…`}
+          {/* Top Status & Controls Row: Centered Pill cleanly positioned directly above the card */}
+          <div className="w-full max-w-2xl mx-auto flex items-center justify-center relative min-h-[36px] px-2">
+            {isChecking ? (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface/90 border border-border shadow-soft text-xs font-semibold text-muted backdrop-blur-sm"
+              >
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    revealPhase === "VERDICT" ? "bg-emerald-500" : "bg-primary animate-pulse"
+                  }`}
+                />
+                <span>
+                  {revealPhase === "MORPH" && `Preparing Draw ${activeDraw?.id}…`}
                   {revealPhase === "SCAN" && `Scanning ${parsed.fullTicketString}…`}
-                  {revealPhase === "JUDGEMENT" && `Evaluating ${activeDraw?.id} (${lockedIndices.length} matches)`}
+                  {revealPhase === "JUDGEMENT" &&
+                    `Comparing numbers against Draw ${activeDraw?.id} (${lockedIndices.length} matched)`}
                   {revealPhase === "PAUSE" && "Resolving verdict…"}
-                  {revealPhase === "VERDICT" && "Official Result Verified"}
-                </motion.span>
-              ) : (
-                <div className="h-8 flex items-center justify-center">
-                  {firstLetter && <SchemeChip firstLetter={firstLetter} drawId={activeDraw?.id} />}
-                </div>
-              )}
-            </div>
+                  {revealPhase === "VERDICT" && `Result verified against Draw ${activeDraw?.id}`}
+                </span>
+              </motion.div>
+            ) : (
+              <div className="h-8 flex items-center justify-center">
+                {firstLetter && <SchemeChip firstLetter={firstLetter} drawId={activeDraw?.id} />}
+              </div>
+            )}
 
             {isChecking && revealPhase !== "VERDICT" && showSkip && (
               <motion.button
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 onClick={handleSkip}
-                className="text-xs font-semibold text-muted hover:text-main px-3 py-1 rounded-full bg-surface border border-border shadow-soft transition-colors cursor-pointer"
+                className="absolute right-0 text-xs font-semibold text-muted hover:text-main px-3 py-1 rounded-full bg-surface border border-border shadow-soft transition-colors cursor-pointer"
               >
                 Skip
               </motion.button>
@@ -523,42 +529,26 @@ export function Check({ initialChecking = false }: CheckProps) {
             ) : null}
           </AnimatePresence>
 
-          {/* THE HERO CARD: Morphing seamlessly between Input Card and Kerala Lottery Card */}
+          {/* THE HERO CARD: Razor-sharp 2D elevation & morph between Input Card and Kerala Lottery Card */}
           <motion.div
             layout
             initial={false}
             animate={
               isChecking
                 ? {
-                    scale: revealPhase === "VERDICT" && isWin ? 1.02 : 0.96,
-                    rotateX: revealPhase === "VERDICT" ? 0 : 3.5,
-                    rotateY: revealPhase === "VERDICT" ? 0 : -1.8,
-                    y: revealPhase === "VERDICT" && isWin ? -12 : -6,
+                    scale: 1,
+                    y: revealPhase === "VERDICT" && isWin ? -8 : 0,
                   }
                 : {
                     scale: 1,
-                    rotateX: 0,
-                    rotateY: 0,
                     y: 0,
                   }
             }
             transition={{
-              duration: 0.7,
+              duration: 0.45,
               ease: [0.16, 1, 0.3, 1],
             }}
-            style={{
-              transformPerspective: 1200,
-              willChange: "transform",
-            }}
-            className={`w-full transition-shadow duration-300 ${
-              isChecking && evalResult?.kind === "jackpot" && revealPhase === "VERDICT"
-                ? "drop-shadow-[0_0_40px_rgba(227,185,87,0.5)]"
-                : isChecking && evalResult?.kind === "mid" && revealPhase === "VERDICT"
-                ? "drop-shadow-[0_0_28px_rgba(91,67,138,0.3)]"
-                : isChecking && evalResult?.kind === "small" && revealPhase === "VERDICT"
-                ? "drop-shadow-[0_0_24px_rgba(92,196,171,0.3)]"
-                : ""
-            }`}
+            className="w-full flex justify-center"
           >
             <AnimatePresence mode="wait">
               {!isChecking ? (

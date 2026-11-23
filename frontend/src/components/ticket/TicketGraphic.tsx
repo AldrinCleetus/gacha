@@ -1,6 +1,8 @@
 import React, { useMemo } from "react";
 import { parseTicket } from "@/lib/parser";
 import { getScheme } from "@/lib/schemes";
+import { Lock, Calendar, CheckCircle2, ShieldCheck } from "lucide-react";
+import { motion } from "framer-motion";
 
 export type TicketState = "idle" | "scanning" | "won" | "lost";
 
@@ -70,16 +72,12 @@ export function TicketGraphic({
   // Deterministic vertical barcode lines
   const barcodeBars = useMemo(() => {
     const raw = parsed.fullTicketString.replace(/[^A-Z0-9]/g, "");
-    const bars: Array<{ x: number; width: number }> = [];
-    let curX = 28;
-    const endX = 184;
-    let i = 0;
-    while (curX < endX) {
+    const bars: Array<{ width: number; gap: number }> = [];
+    for (let i = 0; i < 28; i++) {
       const code = raw.charCodeAt(i % raw.length) || 65;
       const width = (code % 3) + 1.2;
-      bars.push({ x: curX, width });
-      curX += width + ((code * 3) % 4) + 1.5;
-      i++;
+      const gap = ((code * 3) % 4) + 1.5;
+      bars.push({ width, gap });
     }
     return bars;
   }, [parsed.fullTicketString]);
@@ -127,428 +125,177 @@ export function TicketGraphic({
 
   return (
     <div
-      className={`relative select-none ${sizeClasses} ${className}`}
-      style={{ willChange: "transform" }}
+      className={`relative bg-surface rounded-2xl sm:rounded-3xl border border-border shadow-elevated select-none transition-colors duration-200 overflow-hidden ${sizeClasses} ${className}`}
     >
-      <svg
-        viewBox="0 0 680 250"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="w-full h-auto overflow-visible rounded-2xl filter drop-shadow-md transition-shadow duration-300"
-        role="img"
-        aria-label={`Kerala Lottery Ticket ${parsed.fullTicketString}`}
-      >
-        <defs>
-          {/* Laser scan beam */}
-          <linearGradient id="laserBeamGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#05695A" stopOpacity="0" />
-            <stop offset="50%" stopColor="#5CC4AB" stopOpacity="0.75" />
-            <stop offset="100%" stopColor="#05695A" stopOpacity="0" />
-          </linearGradient>
+      <div className="flex w-full min-h-[220px] sm:min-h-[250px]">
+        {/* 1. Left Counterfoil Stub (~30% width) */}
+        <div className="w-[32%] min-w-[150px] sm:min-w-[185px] p-4 sm:p-5 flex flex-col justify-between border-r-2 border-dashed border-border/80 relative bg-surface">
+          {/* Top Row: WEEKLY DRAW & #790 */}
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] sm:text-xs font-bold text-muted tracking-wider uppercase font-sans">
+              WEEKLY DRAW
+            </span>
+            <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 font-mono">
+              {drawNum}
+            </span>
+          </div>
 
-          {/* Golden glow */}
-          <filter id="goldSquircleGlow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="1" stdDeviation="3" floodColor="#F59E0B" floodOpacity="0.4" />
-          </filter>
-        </defs>
+          {/* Scheme Name & Calendar Date */}
+          <div className="space-y-1 my-1">
+            <h2 className="text-xl sm:text-2xl font-black text-main tracking-tight uppercase font-sans">
+              {scheme.name}
+            </h2>
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-muted font-medium font-sans">
+              <Calendar className="w-3.5 h-3.5 text-muted shrink-0" />
+              <span className="truncate">{displayDate}</span>
+            </div>
+          </div>
 
-        {/* 1. Outer Card Background */}
-        <rect
-          x="2"
-          y="2"
-          width="676"
-          height="246"
-          rx="18"
-          fill="var(--color-surface, #ffffff)"
-          stroke="var(--color-border, #E2E8F0)"
-          strokeWidth="1.5"
-          className="transition-colors duration-200"
-        />
+          {/* Ticket Reference Header & Code */}
+          <div className="space-y-0.5">
+            <span className="text-[9px] sm:text-[10px] font-bold text-subtle tracking-wider uppercase block font-sans">
+              TICKET REFERENCE
+            </span>
+            <span className="font-mono text-xs sm:text-sm font-black text-main block tracking-wide">
+              {refCode}
+            </span>
+          </div>
 
-        {/* 2. Left Counterfoil Stub (x: 0 to 205) */}
-        <g id="left-counterfoil">
-          {/* Top Row: WEEKLY DRAW and #790 */}
-          <text
-            x="28"
-            y="36"
-            fill="var(--color-muted, #64748B)"
-            fontSize="11"
-            fontWeight="700"
-            letterSpacing="1.2"
-            fontFamily="Manrope, system-ui, sans-serif"
-          >
-            WEEKLY DRAW
-          </text>
-          <text
-            x="184"
-            y="36"
-            fill="var(--color-muted, #475569)"
-            fontSize="13"
-            fontWeight="800"
-            textAnchor="end"
-            fontFamily="DM Mono, monospace"
-          >
-            {drawNum}
-          </text>
+          {/* Barcode & Subtle Watermark Motif */}
+          <div className="relative pt-1">
+            <div className="flex items-end h-7 sm:h-8 gap-[1.5px] overflow-hidden w-full opacity-85">
+              {barcodeBars.map((bar, idx) => (
+                <div
+                  key={idx}
+                  className="bg-slate-800 dark:bg-slate-200 h-full rounded-[0.5px]"
+                  style={{ width: `${bar.width * 1.5}px` }}
+                />
+              ))}
+            </div>
 
-          {/* Scheme Name */}
-          <text
-            x="28"
-            y="72"
-            fill="var(--color-text, #0F172A)"
-            fontSize="26"
-            fontWeight="900"
-            letterSpacing="-0.5"
-            fontFamily="Manrope, system-ui, sans-serif"
-          >
-            {scheme.name.toUpperCase()}
-          </text>
-
-          {/* Calendar date */}
-          <g transform="translate(28, 86)">
-            {/* Small Calendar icon */}
-            <rect
-              x="0"
-              y="2"
-              width="12"
-              height="11"
-              rx="2"
+            {/* Subtle organic watermark leaf in bottom-right corner of stub */}
+            <svg
+              className="absolute right-0 bottom-0 w-12 h-12 text-slate-300 dark:text-slate-700 pointer-events-none opacity-40 -mr-2 -mb-2"
+              viewBox="0 0 60 60"
               fill="none"
-              stroke="var(--color-muted, #64748B)"
-              strokeWidth="1.2"
-            />
-            <line
-              x1="0"
-              y1="6"
-              x2="12"
-              y2="6"
-              stroke="var(--color-muted, #64748B)"
-              strokeWidth="1.2"
-            />
-            <circle cx="4" cy="9" r="0.8" fill="var(--color-muted, #64748B)" />
-            <circle cx="8" cy="9" r="0.8" fill="var(--color-muted, #64748B)" />
-            {/* Date text */}
-            <text
-              x="18"
-              y="11"
-              fill="var(--color-muted, #64748B)"
-              fontSize="11"
-              fontWeight="600"
-              fontFamily="Manrope, system-ui, sans-serif"
+              stroke="currentColor"
+              strokeWidth="2"
             >
-              {displayDate}
-            </text>
-          </g>
+              <path d="M 10 50 C 20 20, 50 10, 50 50 Z" />
+              <path d="M 10 50 C 30 30, 40 40, 50 50" />
+            </svg>
+          </div>
 
-          {/* Ticket Reference header & code */}
-          <text
-            x="28"
-            y="136"
-            fill="var(--color-subtle, #94A3B8)"
-            fontSize="10"
-            fontWeight="700"
-            letterSpacing="1"
-            fontFamily="Manrope, system-ui, sans-serif"
-          >
-            TICKET REFERENCE
-          </text>
-          <text
-            x="28"
-            y="158"
-            fill="var(--color-text, #1E293B)"
-            fontSize="15"
-            fontWeight="800"
-            fontFamily="DM Mono, monospace"
-          >
-            {refCode}
-          </text>
-
-          {/* Barcode lines */}
-          <g id="barcode" transform="translate(0, 172)">
-            {barcodeBars.map((bar, idx) => (
-              <rect
-                key={idx}
-                x={bar.x}
-                y="0"
-                width={bar.width}
-                height="32"
-                fill="var(--color-text, #1E293B)"
-                opacity="0.85"
-                rx="0.5"
-              />
-            ))}
-          </g>
-
-          {/* Watermark leaf motif in bottom right corner of stub */}
-          <g
-            transform="translate(175, 215) scale(0.7)"
-            stroke="var(--color-border, #CBD5E1)"
-            strokeWidth="2.5"
-            fill="none"
-            opacity="0.6"
-          >
-            <path d="M -30 0 C -10 -25, 20 -20, 30 10 C 15 25, -15 20, -30 0 Z" />
-            <path d="M -30 0 C 0 5, 20 0, 30 10" />
-            <circle cx="-5" cy="-2" r="16" strokeDasharray="3 3" opacity="0.4" />
-          </g>
-        </g>
-
-        {/* 3. Perforation Separator Line & Notches at x = 205 */}
-        <g id="perforation">
-          {/* Top Notch Cutout */}
-          <path
-            d="M 195 2 A 10 10 0 0 0 215 2"
-            fill="var(--color-page-bg, #EBF9F3)"
-            stroke="var(--color-border, #E2E8F0)"
-            strokeWidth="1.5"
+          {/* Perforation Circular Notches at Top & Bottom */}
+          <div
+            className="absolute top-0 -mt-2.5 -right-2.5 w-5 h-5 rounded-full bg-page border border-border z-10"
+            aria-hidden="true"
           />
-          {/* Vertical Dashed Perforation Line */}
-          <line
-            x1="205"
-            y1="12"
-            x2="205"
-            y2="238"
-            stroke="var(--color-border, #CBD5E1)"
-            strokeDasharray="4 4"
-            strokeWidth="1.3"
+          <div
+            className="absolute bottom-0 -mb-2.5 -right-2.5 w-5 h-5 rounded-full bg-page border border-border z-10"
+            aria-hidden="true"
           />
-          {/* Bottom Notch Cutout */}
-          <path
-            d="M 195 248 A 10 10 0 0 1 215 248"
-            fill="var(--color-page-bg, #EBF9F3)"
-            stroke="var(--color-border, #E2E8F0)"
-            strokeWidth="1.5"
-          />
-        </g>
+        </div>
 
-        {/* 4. Right Main Ticket Body (x: 205 to 680) */}
-        <g id="right-ticket-body" transform="translate(230, 0)">
+        {/* 2. Right Main Ticket Body (~68% width) */}
+        <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between gap-3 sm:gap-4 relative bg-surface">
           {/* Top Header: REGISTERED SERIAL NUMBER & Confirmed Pill */}
-          <text
-            x="0"
-            y="36"
-            fill="var(--color-muted, #64748B)"
-            fontSize="11"
-            fontWeight="700"
-            letterSpacing="1.2"
-            fontFamily="Manrope, system-ui, sans-serif"
-          >
-            REGISTERED SERIAL NUMBER
-          </text>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] sm:text-xs font-bold text-muted tracking-wider uppercase font-sans">
+              REGISTERED SERIAL NUMBER
+            </span>
 
-          {/* Confirmed Pill Badge */}
-          <g transform="translate(330, 22)">
-            <rect
-              x="0"
-              y="0"
-              width="92"
-              height="24"
-              rx="12"
-              fill="#DCFCE7"
-              stroke="#86EFAC"
-              strokeWidth="1"
-            />
-            {/* Lock icon */}
-            <path
-              d="M 16 11 L 16 9 C 16 6.8 17.8 5 20 5 C 22.2 5 24 6.8 24 9 L 24 11 M 13 11 L 27 11 C 28 11 28.5 11.5 28.5 12.5 L 28.5 18 C 28.5 19 28 19.5 27 19.5 L 13 19.5 C 12 19.5 11.5 19 11.5 18 L 11.5 12.5 C 11.5 11.5 12 11 13 11 Z"
-              fill="none"
-              stroke="#166534"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-            />
-            <text
-              x="54"
-              y="16"
-              fill="#166534"
-              fontSize="11"
-              fontWeight="700"
-              textAnchor="middle"
-              fontFamily="Manrope, system-ui, sans-serif"
-            >
-              Confirmed
-            </text>
-          </g>
+            {/* Confirmed Pill Badge: Crisp Lucide Lock + Confirmed Text with generous gap */}
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold shadow-2xs">
+              <Lock className="w-3 h-3 text-emerald-700 dark:text-emerald-400 shrink-0" />
+              <span>Confirmed</span>
+            </div>
+          </div>
 
           {/* 8 Squircle Character Boxes */}
-          <g id="character-boxes" transform="translate(0, 56)">
+          <div className="grid grid-cols-8 gap-1.5 sm:gap-2.5 w-full my-auto">
             {chars.map((char, i) => {
               const isMatched = matchedIndices.includes(i);
               const isJudging = activeJudgeIndex === i;
 
-              // 8 boxes spaced evenly
-              const boxW = 44;
-              const boxH = 54;
-              const gap = 10;
-              const xPos = i * (boxW + gap);
-
-              let fill = "var(--color-input-box, #F8FAFC)";
-              let stroke = "var(--color-input-border, #E2E8F0)";
-              let strokeWidth = "1";
-              let textFill = "var(--color-text, #0F172A)";
-              let filter = undefined;
+              let boxClasses = "bg-input-box border-input-border/70 text-main";
 
               if (isMatched) {
-                // Warm Amber Gold match styling from screenshot
-                fill = "#FEF3C7";
-                stroke = "#FCD34D";
-                strokeWidth = "1.5";
-                textFill = "#92400E";
-                filter = "url(#goldSquircleGlow)";
+                // Warm Amber Gold match styling
+                boxClasses =
+                  "bg-[#FEF3C7] dark:bg-amber-950/60 border-[#FCD34D] dark:border-amber-600 text-[#92400E] dark:text-amber-300 shadow-sm ring-1 ring-amber-300/40";
               } else if (isJudging) {
-                // Vibrant pulse while judging
-                fill = "#E3F4EC";
-                stroke = "#05695A";
-                strokeWidth = "2.5";
-                textFill = "#05695A";
+                // Active scanning glow
+                boxClasses =
+                  "bg-primary/10 border-primary text-primary ring-2 ring-primary/25 scale-105";
               } else if (state === "lost") {
-                fill = "var(--color-input-box, #F1F5F9)";
-                stroke = "var(--color-border, #E2E8F0)";
-                textFill = "var(--color-subtle, #94A3B8)";
+                boxClasses = "bg-input-box/70 border-border text-subtle";
               }
 
               return (
-                <g key={i} transform={`translate(${xPos}, 0)`}>
-                  <rect
-                    x="0"
-                    y="0"
-                    width={boxW}
-                    height={boxH}
-                    rx="12"
-                    fill={fill}
-                    stroke={stroke}
-                    strokeWidth={strokeWidth}
-                    filter={filter}
-                    className="transition-all duration-200"
-                  />
-                  <text
-                    x={boxW / 2}
-                    y={36}
-                    fill={textFill}
-                    fontSize="24"
-                    fontWeight="800"
-                    textAnchor="middle"
-                    fontFamily="DM Mono, monospace"
-                    className="tabular-nums"
-                  >
-                    {char || "-"}
-                  </text>
-                </g>
+                <div
+                  key={i}
+                  className={`aspect-[4/5] rounded-xl sm:rounded-2xl border flex items-center justify-center font-mono font-extrabold text-xl sm:text-2xl md:text-3xl transition-all duration-150 ${boxClasses}`}
+                >
+                  <span>{char || "-"}</span>
+                </div>
               );
             })}
-          </g>
+          </div>
 
           {/* Status Row under Character Boxes: Positions Matched & Series */}
-          <g id="status-row" transform="translate(0, 142)">
-            {/* Green Check circle */}
-            <circle
-              cx="8"
-              cy="4"
-              r="7.5"
-              fill={statusInfo.isPositive ? "#059669" : "var(--color-border, #94A3B8)"}
-              className="transition-colors duration-200"
-            />
-            <path
-              d="M 5 4 L 7.2 6.5 L 11 2"
-              fill="none"
-              stroke="#FFFFFF"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2
+                className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 transition-colors ${
+                  statusInfo.isPositive
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-muted"
+                }`}
+              />
+              <span
+                className={`text-xs sm:text-sm font-bold transition-colors ${
+                  statusInfo.isPositive
+                    ? "text-emerald-700 dark:text-emerald-400"
+                    : "text-muted"
+                }`}
+              >
+                {statusInfo.text}
+              </span>
+            </div>
 
-            {/* Position Match Text */}
-            <text
-              x="22"
-              y="8"
-              fill={statusInfo.isPositive ? "#059669" : "var(--color-muted, #64748B)"}
-              fontSize="12"
-              fontWeight="700"
-              fontFamily="Manrope, system-ui, sans-serif"
-              className="transition-colors duration-200"
-            >
-              {statusInfo.text}
-            </text>
-
-            {/* Series text on right */}
-            <text
-              x="422"
-              y="8"
-              fill="var(--color-muted, #64748B)"
-              fontSize="12"
-              fontWeight="600"
-              textAnchor="end"
-              fontFamily="DM Mono, monospace"
-            >
+            <span className="font-mono text-xs sm:text-sm font-bold text-muted">
               {effectiveSeries}
-            </text>
-          </g>
+            </span>
+          </div>
 
           {/* Security Row: Cryptographically matched sequence & Prize Tier */}
-          <g id="security-row" transform="translate(0, 184)">
-            {/* Security Shield Check Icon */}
-            <path
-              d="M 8 -2 L 14 0.5 C 14 5.5, 11 9, 8 10.5 C 5 9, 2 5.5, 2 0.5 Z"
-              fill="none"
-              stroke="#059669"
-              strokeWidth="1.3"
-            />
-            <path
-              d="M 5.5 4 L 7.2 5.8 L 10.5 2.5"
-              fill="none"
-              stroke="#059669"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-            />
+          <div className="flex items-center justify-between text-[11px] sm:text-xs">
+            <div className="flex items-center gap-1.5 font-semibold text-slate-600 dark:text-slate-400">
+              <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>
+                {statusInfo.isPositive
+                  ? "Cryptographically matched sequence"
+                  : "Sequence verified against draw"}
+              </span>
+            </div>
 
-            {/* Security match description */}
-            <text
-              x="22"
-              y="8"
-              fill="var(--color-muted, #475569)"
-              fontSize="12"
-              fontWeight="600"
-              fontFamily="Manrope, system-ui, sans-serif"
-            >
-              {statusInfo.isPositive
-                ? "Cryptographically matched sequence"
-                : "Sequence verified against draw"}
-            </text>
-
-            {/* Prize Tier */}
-            <text
-              x="422"
-              y="8"
-              fill="var(--color-muted, #64748B)"
-              fontSize="12"
-              fontWeight="700"
-              textAnchor="end"
-              fontFamily="DM Mono, monospace"
-            >
+            <span className="font-mono font-bold text-slate-600 dark:text-slate-400">
               {effectiveTier}
-            </text>
-          </g>
-        </g>
+            </span>
+          </div>
+        </div>
+      </div>
 
-        {/* 5. Laser Scan Beam Overlay */}
-        {state === "scanning" && (
-          <rect
-            x="0"
-            y="0"
-            width="45"
-            height="250"
-            fill="url(#laserBeamGrad)"
-            opacity="0.8"
-          >
-            <animate
-              attributeName="x"
-              from="0"
-              to="680"
-              dur="1.2s"
-              repeatCount="indefinite"
-            />
-          </rect>
-        )}
-      </svg>
+      {/* 3. Laser Sweep Scan Overlay (During scanning state) */}
+      {state === "scanning" && (
+        <motion.div
+          initial={{ x: "-100%" }}
+          animate={{ x: "250%" }}
+          transition={{ duration: 1.1, repeat: Infinity, ease: "linear" }}
+          className="absolute inset-y-0 w-32 bg-gradient-to-r from-transparent via-primary/25 to-transparent pointer-events-none"
+        />
+      )}
     </div>
   );
 }

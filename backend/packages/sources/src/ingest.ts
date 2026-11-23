@@ -8,14 +8,18 @@ import {
   sourceObservations,
   schemes,
   schemeSeries,
+  ingestEvents,
+  DrawStatus,
   sql,
   eq,
+  and,
 } from "@gacha/db";
 import { ParsedDraw, LocalRawStore, RawStore } from "@gacha/shared";
 import { parseArticle } from "./onmanorama/parser.js";
 import { defaultHttpClient } from "./http.js";
 import { validateParsedDraw, ValidationResult } from "./validation.js";
 import { computeDrawFingerprint } from "./fingerprint.js";
+import { publishDraw, isSingleSourcePublishEnabled } from "./publish.js";
 
 export interface IngestObservationOptions {
   source?: "onmanorama" | "keralalotteries_net" | "official";
@@ -24,23 +28,32 @@ export interface IngestObservationOptions {
   html?: string;
   rawStore?: RawStore;
   db?: DbClient;
+  autoPublish?: boolean; // Defaults to isSingleSourcePublishEnabled()
 }
 
 export interface IngestObservationResult {
   observationId: string;
   drawId?: string;
+  drawStatus?: DrawStatus;
+  published?: boolean;
+  alreadyPublished?: boolean;
+  conflict?: boolean;
   source: string;
   sourceUrl?: string;
   rawObjectKey: string;
   contentHash: string;
   validation: ValidationResult;
   fingerprint?: string;
+  tierCount?: number;
+  entryCount?: number;
   parsed?: ParsedDraw;
 }
 
 /**
  * Ingests an observation from a URL or fixture into RawStore and PostgreSQL.
- * Validates the draw, records errors if validation fails, and creates/links the draw record.
+ * Validates the draw, records errors if validation fails, links/creates the draw,
+ * and if valid and single-source publishing is enabled, publishes the draw
+ * with tiers, entries, and an audit log in one atomic transaction.
  */
 export async function ingestObservation(
   options: IngestObservationOptions
@@ -95,8 +108,17 @@ export async function ingestObservation(
   let validation: ValidationResult;
   let fingerprint: string | undefined;
   let drawId: string | undefined;
+  let drawStatus: DrawStatus | undefined;
+  let isPublished = false;
+  let isAlreadyPublished = false;
+  let isConflict = false;
+  let tierCount = 0;
+  let entryCount = 0;
 
   if (parsed) {
+    tierCount = parsed.tiers.length;
+    entryCount = parsed.tiers.reduce((acc, t) => acc + t.entries.length, 0);
+
     // Look up scheme config from database
     const schemeRecord = await db.query.schemes.findFirst({
       where: eq(schemes.code, parsed.schemeCode),
@@ -125,8 +147,8 @@ export async function ingestObservation(
 
     fingerprint = computeDrawFingerprint(parsed);
 
-    // Upsert draw record in database
-    const drawStatus = validation.ok ? "observed" : "needs_review";
+    // Initial status for draw creation if not existing
+    const initialStatus: DrawStatus = validation.ok ? "observed" : "needs_review";
 
     const [drawRecord] = await db
       .insert(draws)
@@ -134,21 +156,22 @@ export async function ingestObservation(
         schemeCode: parsed.schemeCode,
         drawCode: parsed.drawCode,
         drawDate: parsed.drawDate,
-        status: drawStatus,
+        status: initialStatus,
         fingerprint: validation.ok ? fingerprint : null,
       })
       .onConflictDoUpdate({
         target: [draws.schemeCode, draws.drawCode],
         set: {
-          status: sql`CASE WHEN ${draws.status} = 'published' THEN ${draws.status} ELSE ${drawStatus} END`,
-          fingerprint: sql`CASE WHEN ${draws.status} = 'published' THEN ${draws.fingerprint} ELSE ${validation.ok ? fingerprint : null} END`,
+          // If already published, retain status; otherwise update
+          status: sql`CASE WHEN ${draws.status} = 'published' THEN ${draws.status} ELSE ${initialStatus} END`,
         },
       })
-      .returning({ id: draws.id });
+      .returning({ id: draws.id, status: draws.status });
 
     drawId = drawRecord.id;
+    drawStatus = drawRecord.status;
 
-    // If valid, register 1st prize ticket series if not already registered
+    // Register 1st prize series if valid
     if (validation.ok) {
       const firstPrize = parsed.tiers.find((t) => t.tier === "1");
       if (firstPrize && firstPrize.entries.length > 0) {
@@ -221,15 +244,76 @@ export async function ingestObservation(
     observationId = obsRecord.id;
   }
 
+  // 8. Publishing & Status Lifecycle
+  if (drawId && parsed) {
+    if (!validation.ok) {
+      // If validation failed, flag draw as needs_review (unless already published)
+      await db
+        .update(draws)
+        .set({ status: "needs_review" })
+        .where(and(eq(draws.id, drawId), sql`${draws.status} != 'published'`));
+
+      drawStatus = "needs_review";
+
+      await db.insert(ingestEvents).values({
+        drawId,
+        kind: "validation_failed",
+        detail: {
+          source,
+          sourceUrl: resolvedUrl,
+          errors: validation.errors,
+        },
+      });
+    } else {
+      // Observation is valid
+      const shouldAutoPublish =
+        options.autoPublish !== undefined
+          ? options.autoPublish
+          : isSingleSourcePublishEnabled();
+
+      if (shouldAutoPublish) {
+        // Publish draw in an atomic transaction
+        const pubResult = await publishDraw(db, drawId, parsed, {
+          source,
+          sourceUrl: resolvedUrl,
+          singleSource: true,
+        });
+
+        drawStatus = pubResult.status;
+        isPublished = pubResult.published;
+        isAlreadyPublished = pubResult.alreadyPublished ?? false;
+        isConflict = pubResult.conflict ?? false;
+      } else {
+        // Single-source publishing disabled: remain in 'observed' state
+        drawStatus = "observed";
+        await db.insert(ingestEvents).values({
+          drawId,
+          kind: "observed",
+          detail: {
+            source,
+            sourceUrl: resolvedUrl,
+            fingerprint,
+          },
+        });
+      }
+    }
+  }
+
   return {
     observationId,
     drawId,
+    drawStatus,
+    published: isPublished,
+    alreadyPublished: isAlreadyPublished,
+    conflict: isConflict,
     source: parsed ? parsed.source : source,
     sourceUrl: resolvedUrl,
     rawObjectKey,
     contentHash,
     validation,
     fingerprint,
+    tierCount,
+    entryCount,
     parsed: parsed || undefined,
   };
 }

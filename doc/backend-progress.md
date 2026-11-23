@@ -13,7 +13,7 @@ This document tracks the incremental implementation of the gacha backend accordi
 | **F2** | Shared package: ParsedDraw, parseTicket, checkTicket | **Done** | `checkTicket` and `parseTicket` unit tested (34 tests passing); CLI `pnpm check-ticket` verified against fixture. |
 | **F3** | Source adapter interface + Onmanorama adapter | **Done** | Real HTML fixtures saved; listing + article parser built; PoliteHttpClient with rate-limiting, ETag/304 cache, and polite User-Agent; 44 tests passing; CLI `pnpm ingest:onmanorama` verified on live URL and fixture. |
 | **F4** | Observations + validation rules + raw payload storage | **Done** | `RawStore` archival; `source_observations` upsert with validation JSON; validation rules (date/weekday, tiers, formats, descending amounts); canonical fingerprinting; CLI `pnpm ingest` verified with valid & broken fixtures. |
-| **F5** | Draws + publishing (single-source behind config flag) | Todo | Pending |
+| **F5** | Draws + publishing (single-source behind config flag) | **Done** | Atomic publish transaction (`draws`, `prize_tiers`, `prize_entries`, `ingest_events`); idempotent re-ingest; status lifecycle; conflict detection (`needs_review`); verified via psql and CLI. |
 | **F6** | Public read API with OpenAPI/Swagger & ticket check | Todo | Pending |
 | **F7** | Scheduler (pg-boss jobs, IST windows, single-flight) | Todo | Pending |
 | **F8** | keralalotteries.net adapter & winner agencies | Todo | Pending |
@@ -353,5 +353,93 @@ pnpm typecheck
 
 ### Next Feature
 - **F5: Draws + Publishing (single-source behind config flag)**: Turn a valid observation into a published draw with tiers and entries in one atomic transaction, status lifecycle (`expected`, `observed`, `published`, `needs_review`), `ingest_events` audit logging, and idempotent re-ingestion.
+
+---
+
+## Feature 5: Draws + Publishing (Single-Source)
+
+### What Was Built
+- **Publishing Engine (`packages/sources/src/publish.ts`)**:
+  - `publishDraw(db, drawId, parsed, options)`:
+    - Atomically publishes a draw within a single PostgreSQL transaction (`db.transaction`).
+    - Obtains exclusive row-level lock on the target draw using `SELECT ... FOR UPDATE` to avoid race conditions.
+    - Idempotency guard: If the draw is already in `published` status with the identical fingerprint, returns `{ alreadyPublished: true, published: false }` with zero duplicate rows created.
+    - Conflict detection: If an observation arrives for an already-published draw with a conflicting fingerprint, transitions status to `needs_review` and inserts an audit log event of kind `conflict`.
+    - Inserts all `prize_tiers` (`draw_id`, `tier`, `amount`, `match_type`).
+    - Batch inserts all `prize_entries` (`draw_id`, `tier`, `entry`) in chunks of 250 rows to avoid query parameter limits.
+    - Inserts `winner_agencies` if agent info is present in the observation.
+    - Updates `draws` status to `'published'`, sets `published_at = NOW()`, and records `fingerprint`.
+    - Inserts audit log record into `ingest_events` with kind `'published'` and metadata (`source`, `sourceUrl`, `fingerprint`, `tierCount`, `entryCount`, `singleSource: true`).
+  - `isSingleSourcePublishEnabled()`: Helper checking `process.env.SINGLE_SOURCE_PUBLISH !== 'false'` (defaults to `true` for early development).
+- **Ingestion Pipeline Integration (`packages/sources/src/ingest.ts`)**:
+  - Updated `ingestObservation` to automatically invoke `publishDraw()` when validation succeeds and single-source publishing is active (`autoPublish`).
+  - Added CLI flag `--no-publish` in `packages/sources/src/cli/ingest.ts` to allow testing observations without publishing when desired.
+- **Unit & Integration Tests (`packages/sources/src/__tests__/publish.test.ts`)**:
+  - Added tests asserting:
+    1. Single-source flag check defaults to true and honors `process.env.SINGLE_SOURCE_PUBLISH='false'`.
+    2. Atomic transaction structure and conflict event recording.
+  - Test suite now includes 10 test files and 56 passing tests across the monorepo.
+  - Lint and typecheck clean with 0 errors.
+
+### Verification Steps
+```bash
+# 1. Ingest fixture and publish draw into PostgreSQL
+cd backend
+pnpm ingest --fixture packages/sources/src/onmanorama/fixtures/samrudhi-sm-82.html
+
+# Output:
+# {
+#   "observationId": "...",
+#   "drawId": "501eb8a1-64ac-4d22-a9b9-95dbc3945512",
+#   "drawStatus": "published",
+#   "published": true,
+#   "alreadyPublished": false,
+#   "fingerprint": "48c35a8abb1409dfb7727344808f409c8f09311d6c9d1c8424539f8be60505f8",
+#   "tierCount": 10,
+#   "entryCount": 371
+# }
+
+# 2. Test Idempotency (re-running the exact same ingest command)
+pnpm ingest --fixture packages/sources/src/onmanorama/fixtures/samrudhi-sm-82.html
+
+# Output:
+# {
+#   "drawStatus": "published",
+#   "published": false,
+#   "alreadyPublished": true
+# }
+
+# 3. Query PostgreSQL draws table
+docker compose exec postgres psql -U postgres -d gacha -c "SELECT id, scheme_code, draw_code, draw_date, status, published_at, fingerprint FROM draws;"
+
+# 4. Query PostgreSQL prize_tiers table
+docker compose exec postgres psql -U postgres -d gacha -c "SELECT tier, amount, match_type FROM prize_tiers ORDER BY tier;"
+
+# 5. Query PostgreSQL prize_entries count per tier
+docker compose exec postgres psql -U postgres -d gacha -c "SELECT tier, count(*) FROM prize_entries GROUP BY tier ORDER BY tier;"
+
+# 6. Query PostgreSQL ingest_events audit log
+docker compose exec postgres psql -U postgres -d gacha -c "SELECT id, draw_id, kind, detail FROM ingest_events;"
+
+# 7. Run all monorepo checks
+pnpm test
+pnpm lint
+pnpm typecheck
+```
+
+### Decisions Made & Deviations from Design
+1. **Row Locking (`FOR UPDATE`)**:
+   Used `tx.select().from(draws).where(eq(draws.id, drawId)).for("update")` inside the transaction to prevent concurrent scraper workers from attempting to publish the same draw simultaneously.
+2. **Chunked Prize Entry Inserts**:
+   High-count prize tiers (such as 9th prize with 150 entries, or bumper draws with thousands of entries) can exceed Postgres query parameter limits if inserted in a single query. Chunking into batches of 250 ensures safe, fast insertion.
+3. **Audit Trail on Conflict**:
+   If an incoming observation differs in fingerprint from an already-published draw, the system does not overwrite the published results; instead, it safely flips the draw to `needs_review` and creates an audit event (`kind: "conflict"`) with both fingerprints and source details.
+
+### Known Issues
+- None.
+
+### Next Feature
+- **F6: Public Read API**: Fastify read API with `GET /v1/schemes`, `GET /v1/draws` (with pagination, scheme filter, before filter), `GET /v1/draws/latest`, `GET /v1/draws/:id`, `POST /v1/draws/:id/check` using shared `checkTicket`, `GET /v1/draws/status`. Zod validation, ETag + Cache-Control, per-IP rate limiting, and OpenAPI/Swagger documentation at `/docs`.
+
 
 

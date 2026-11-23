@@ -1,0 +1,52 @@
+{
+  "source": "official",
+  "sourceUrl": "https://statelottery.kerala.gov.in/results/KR-777.pdf",
+  "fetchedAt": "2026-11-21T11:30:00.000Z",
+  "schemeName": "Karunya",
+  "schemeCode": "KR",
+  "drawCode": "KR-777",
+  "drawDate": "2026-11-21",
+  "tiers": [
+    {
+      "tier": "1",
+      "amount": 8000000,
+      "matchType": "full",
+      "entries": ["WA584920"]
+    },
+    {
+      "tier": "consolation",
+      "amount": 8000,
+      "matchType": "consolation",
+      "entries": []
+    },
+    {
+      "tier": "2",
+      "amount": 500000,
+      "matchType": "full",
+      "entries": ["WB743219"]
+    },
+    {
+      "tier": "7",
+      "amount": 5000,
+      "matchType": "last4",
+      "entries": ["4920", "8371", "2910"]
+    },
+    {
+      "tier": "8",
+      "amount": 1000,
+      "matchType": "last4",
+      "entries": ["3391", "6724", "1104"]
+    }
+  ],
+  "agents": [
+    {
+      "tier": "1",
+      "ticket": "WA584920",
+      "agencyName": "A-One Lucky Centre",
+      "place": "Thrissur"
+    }
+  ],
+  "raw": {
+    "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

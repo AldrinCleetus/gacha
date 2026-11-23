@@ -6,6 +6,7 @@
   "description": "gacha Kerala lottery result checker backend monorepo",
   "scripts": {
     "build": "pnpm -r --filter=!gacha-backend build",
+    "check-ticket": "tsx packages/shared/src/cli.ts",
     "lint": "eslint .",
     "typecheck": "tsc -b",
     "test": "vitest run",

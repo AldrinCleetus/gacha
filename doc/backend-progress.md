@@ -10,7 +10,7 @@ This document tracks the incremental implementation of the gacha backend accordi
 |---|---|---|---|
 | **F0** | Scaffold + Docker (Monorepo, Compose, Health API, Worker) | **Done** | `docker compose up` brings up postgres, migrate, api, worker. `GET /health` returns 200 with DB status. Worker logs boot. |
 | **F1** | Database schema, migrations & seed for 7 schemes | **Done** | `migrate` runs against clean DB; 8 tables created; 7 schemes seeded; verified via psql queries. |
-| **F2** | Shared package: ParsedDraw, parseTicket, checkTicket | Todo | Pending |
+| **F2** | Shared package: ParsedDraw, parseTicket, checkTicket | **Done** | `checkTicket` and `parseTicket` unit tested (34 tests passing); CLI `pnpm check-ticket` verified against fixture. |
 | **F3** | Source adapter interface + Onmanorama adapter | Todo | Pending |
 | **F4** | Observations + validation rules + raw payload storage | Todo | Pending |
 | **F5** | Draws + publishing (single-source behind config flag) | Todo | Pending |
@@ -130,3 +130,73 @@ docker compose exec postgres psql -U postgres -d gacha -c "SELECT code, name, st
 
 ### Next Feature
 - **F2: Shared Package**: `ParsedDraw` and related Zod schemas, `parseTicket` (accepts "AB123456", "AB 123456", "ab-123456"), `checkTicket(ticket, draw) -> MatchResult` (full match, consolation, last-4, none, with `matchedIndices` and closest-match info). Thorough unit tests. CLI: `pnpm check-ticket <ticket> <fixture>`. No network.
+
+---
+
+## Feature 2: Shared Package (Schemas, Parser, Matcher & CLI)
+
+### What Was Built
+- **Zod Schemas (`packages/shared/src/schemas.ts`)**:
+  - `ParsedDrawSchema`: Validates full draw structure (`source`, `sourceUrl`, `fetchedAt`, `schemeName`, `schemeCode`, `drawCode`, `drawDate`, `tiers`, `agents`, `raw.contentHash`).
+  - `PrizeTierSchema`: Tier details (`tier`, `amount`, `matchType` ("full" | "consolation" | "last4"), `entries`).
+  - `ParsedTicketSchema`: Structured parsed ticket representation (`schemeCode`, `seriesChar`, `series`, `digits`, `fullTicketString`, `characters`, `isValid`, `error`).
+  - `MatchResultSchema`: Standardized outcome (`kind` ("jackpot" | "mid" | "small" | "none"), `tier`, `amount`, `formattedAmount`, `matchedIndices`, `closestMatch`, `summary`).
+  - `DrawRefSchema`: Source discovery reference (`schemeCode`, `drawCode`, `drawDate`, `url`).
+- **Ticket Parser (`packages/shared/src/parser.ts`)**:
+  - `parseTicket(raw: string)`: Robust pure function accepting:
+    - `"AB 123456"` (standard space format)
+    - `"AB123456"` (compact format)
+    - `"ab-123456"` (hyphenated lowercase format)
+    - `"  w a - 5 8 4 9 2 0 "` (scattered spaces and punctuation)
+    - Rejects invalid tickets (short, long, non-letters in series, non-digits in number) with friendly error descriptions.
+- **Ticket Matcher (`packages/shared/src/checkTicket.ts`)**:
+  - Pure function evaluating tickets against draw results offline without network access.
+  - Handles:
+    1. Full match (series + 6 digits) -> Jackpot 1st prize (`matchedIndices: [0..7]`).
+    2. Consolation prize (same 6 digits, different series) -> Mid prize with truthful note (`"Same number as the 1st prize, different series"`).
+    3. Secondary full prizes (2nd / 3rd prize).
+    4. Last-4 digits match -> Mid / Small prize (`matchedIndices: [4, 5, 6, 7]`).
+    5. Truthful near-miss calculation for no-win:
+       - 5 of 6 digits of 1st prize (`"Matched 5 of the 6 digits of the 1st prize (XXXXXX)"`).
+       - 3 of 4 digits of drawn 4-digit numbers (`"Off by one digit from drawn number XXXX"`).
+       - Same series as 1st prize (`"Same series (XX) as the 1st prize winner"`).
+       - Coincidental character matches for realistic ticket card scanning.
+    6. Unpublished draws -> returns `"Results Pending"` status.
+    7. Supports demo forced outcomes (`jackpot`, `mid`, `small`, `none`).
+- **CLI Utility (`packages/shared/src/cli.ts`)**:
+  - `pnpm check-ticket <ticket> <fixture-path>`
+  - Evaluates ticket against fixture JSON, printing both human-readable overview and JSON output.
+- **Sample Fixture (`packages/shared/fixtures/sample-draw.json`)**:
+  - Real sample draw of Karunya KR-777.
+- **Unit Tests (`packages/shared/src/__tests__/ticket.test.ts`)**:
+  - 21 thorough unit tests covering all formats, win tiers, near-misses, edge cases, and formatting.
+
+### Verification Steps
+```bash
+# 1. Run all unit tests across the monorepo
+pnpm test
+
+# 2. Check 1st Prize (Jackpot) via CLI
+pnpm check-ticket WA584920 packages/shared/fixtures/sample-draw.json
+
+# 3. Check Consolation Prize via CLI
+pnpm check-ticket WB584920 packages/shared/fixtures/sample-draw.json
+
+# 4. Check Last-4 Prize via CLI
+pnpm check-ticket "KL 114920" packages/shared/fixtures/sample-draw.json
+
+# 5. Check No-Win Near-Miss (5 of 6 digits) via CLI
+pnpm check-ticket "wa-584921" packages/shared/fixtures/sample-draw.json
+```
+
+### Decisions Made & Deviations from Design
+1. **Dual Draw Input Compatibility**:
+   `checkTicket` accepts either `ParsedDraw` (backend schema with `tiers[]`) or `CheckTicketDrawInput` (frontend schema with `prizes{}`), allowing full code sharing between backend Fastify API endpoints and the React frontend.
+2. **Indian Number Formatting**:
+   Added `formatINR()` in shared package to produce official Rupee representations (e.g. `₹80,00,000`, `₹5,000`).
+
+### Known Issues
+- None.
+
+### Next Feature
+- **F3: Source Adapter Interface + Onmanorama Adapter**: Fetch the topic listing page and live result articles, save real HTML fixtures into `packages/sources/onmanorama/fixtures/`, write the Cheerio parser, assert exact `ParsedDraw` output in tests, respect `robots.txt`, rate limiting (~1 req/few secs per host), and add CLI `pnpm ingest:onmanorama --url <url>`.

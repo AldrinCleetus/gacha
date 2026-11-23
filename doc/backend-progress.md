@@ -12,7 +12,7 @@ This document tracks the incremental implementation of the gacha backend accordi
 | **F1** | Database schema, migrations & seed for 7 schemes | **Done** | `migrate` runs against clean DB; 8 tables created; 7 schemes seeded; verified via psql queries. |
 | **F2** | Shared package: ParsedDraw, parseTicket, checkTicket | **Done** | `checkTicket` and `parseTicket` unit tested (34 tests passing); CLI `pnpm check-ticket` verified against fixture. |
 | **F3** | Source adapter interface + Onmanorama adapter | **Done** | Real HTML fixtures saved; listing + article parser built; PoliteHttpClient with rate-limiting, ETag/304 cache, and polite User-Agent; 44 tests passing; CLI `pnpm ingest:onmanorama` verified on live URL and fixture. |
-| **F4** | Observations + validation rules + raw payload storage | Todo | Pending |
+| **F4** | Observations + validation rules + raw payload storage | **Done** | `RawStore` archival; `source_observations` upsert with validation JSON; validation rules (date/weekday, tiers, formats, descending amounts); canonical fingerprinting; CLI `pnpm ingest` verified with valid & broken fixtures. |
 | **F5** | Draws + publishing (single-source behind config flag) | Todo | Pending |
 | **F6** | Public read API with OpenAPI/Swagger & ticket check | Todo | Pending |
 | **F7** | Scheduler (pg-boss jobs, IST windows, single-flight) | Todo | Pending |
@@ -275,4 +275,83 @@ curl http://localhost:3001/health
 
 ### Next Feature
 - **F4: Observations + Validation**: Store raw payloads via `RawStore`, write `source_observations`, implement validation rules from the design (draw date and weekday match, expected tiers and counts from scheme structure config, ticket formats, descending amounts), record failures without throwing away, add CLI to ingest one URL into database.
+
+---
+
+## Feature 4: Observations + Validation
+
+### What Was Built
+- **Validation Engine (`packages/sources/src/validation.ts`)**:
+  - Implements the strict validation rules from Section 4.3 of the design doc:
+    1. **Date validity**: Draw date must be a valid calendar date in IST format (`YYYY-MM-DD`) and must not be in the future (`drawDate <= todayIST`).
+    2. **Weekday match**: If the scheme is weekly (`schemes.weekday` 1 = Mon ... 7 = Sun), `getWeekdayFromDate(drawDate)` must exactly match the scheme's weekday.
+    3. **Expected tiers presence**: Verifies all expected tiers are present (`1`, `consolation`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, etc.) from scheme structure configuration.
+    4. **Ticket format well-formedness**: Full tickets must be 2 uppercase letters + 6 digits (`/^[A-Z]{2}\d{6}$/`); last-4 numbers must be 4 digits (`/^\d{4}$/`).
+    5. **Amounts positive & descending**: Every tier amount must be positive. Major prize tiers must descend (Tier 1 > Tier 2 > Tier 3 > Tier 4 >= Tier 5 >= Tier 6...).
+    6. **1st prize series check**: Series must be 2 uppercase letters and belong to known series registered for the scheme if known series are present.
+  - Returns structured `ValidationResult`: `{ ok: boolean, errors: string[] }`.
+- **Draw Fingerprint Generator (`packages/sources/src/fingerprint.ts`)**:
+  - Implements Section 4.2 of the design doc.
+  - Canonicalizes prize tiers and sorts all entries within each tier before generating SHA-256 hash.
+  - Guarantees that two independent sources reporting the same draw results will yield the identical fingerprint regardless of entry ordering.
+- **Ingestion Service (`packages/sources/src/ingest.ts`)**:
+  - Coordinates end-to-end ingestion from URL, fixture path, or HTML payload:
+    1. Stores raw payload into `RawStore` under `sources/<source>/<schemeCode>/<drawCode>/<contentHash>.html`.
+    2. Parses draw or captures parse errors.
+    3. Runs validation rules against the parsed draw and scheme config from PostgreSQL.
+    4. Computes normalized prize fingerprint.
+    5. Upserts draw into `draws` table with initial status (`observed` if valid, `needs_review` if invalid).
+    6. Upserts observation into `source_observations` table with `{ ok, errors }` validation JSON.
+    7. Registers newly observed series into `scheme_series`.
+    8. Failures are recorded and never thrown away. Idempotent on re-ingest.
+- **CLI Utility (`packages/sources/src/cli/ingest.ts`)**:
+  - Added npm script in `backend/package.json`: `"ingest": "tsx packages/sources/src/cli/ingest.ts"`.
+  - Supports: `pnpm ingest --fixture <path>` and `pnpm ingest --url <url>`.
+  - Ingests draw, writes raw payload to `RawStore`, and upserts database records in PostgreSQL.
+- **Fixtures & Tests**:
+  - Real valid fixture: `packages/sources/src/onmanorama/fixtures/samrudhi-sm-82.html`.
+  - Deliberately broken fixture: `packages/sources/src/onmanorama/fixtures/broken-invalid-draw.html` (weekday mismatch + descending amount violation).
+  - Unit tests:
+    - `packages/sources/src/__tests__/validation.test.ts` (8 tests)
+    - `packages/sources/src/__tests__/fingerprint.test.ts` (2 tests)
+  - Monorepo test suite: 9 test files, 54 tests passing.
+
+### Verification Steps
+```bash
+# 1. Ingest valid draw fixture into database
+cd backend
+pnpm ingest --fixture packages/sources/src/onmanorama/fixtures/samrudhi-sm-82.html
+
+# 2. Ingest deliberately broken draw fixture into database
+pnpm ingest --fixture packages/sources/src/onmanorama/fixtures/broken-invalid-draw.html
+
+# 3. Query PostgreSQL source_observations table
+docker compose exec postgres psql -U postgres -d gacha -c "SELECT id, draw_id, source, raw_object_key, validation->>'ok' as ok, validation->>'errors' as errors FROM source_observations;"
+
+# 4. Query PostgreSQL draws table
+docker compose exec postgres psql -U postgres -d gacha -c "SELECT id, scheme_code, draw_code, draw_date, status, fingerprint FROM draws;"
+
+# 5. Check raw payload archival storage
+ls backend/data/raw/sources/onmanorama/SM/SM-82
+
+# 6. Run all unit tests, lint, and typecheck
+pnpm test
+pnpm lint
+pnpm typecheck
+```
+
+### Decisions Made & Deviations from Design
+1. **Handling Ingestion Failures Gracefully**:
+   Even if an article is malformed or validation fails, `ingestObservation` stores the raw HTML in `RawStore` and inserts the observation into `source_observations` with `validation: { ok: false, errors: [...] }`. Associated draws are placed in `needs_review` status.
+2. **Deterministic Canonical Fingerprints**:
+   Tiers are ordered numerically (`1`, `2`, `3`, ..., `consolation`), and all entry arrays are sorted before hashing to eliminate source ordering discrepancies.
+3. **Database URL Host Mapping in .env**:
+   Configured `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/gacha` in `.env` for host-side CLI operations, while `docker-compose.yml` provides internal container hostnames (`postgres:5432`).
+
+### Known Issues
+- None.
+
+### Next Feature
+- **F5: Draws + Publishing (single-source behind config flag)**: Turn a valid observation into a published draw with tiers and entries in one atomic transaction, status lifecycle (`expected`, `observed`, `published`, `needs_review`), `ingest_events` audit logging, and idempotent re-ingestion.
+
 

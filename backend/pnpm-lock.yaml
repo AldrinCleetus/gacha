@@ -153,12 +153,18 @@ importers:
 
   packages/sources:
     dependencies:
+      '@gacha/db':
+        specifier: workspace:*
+        version: link:../db
       '@gacha/shared':
         specifier: workspace:*
         version: link:../shared
       cheerio:
         specifier: ^1.0.0
         version: 1.2.0
+      drizzle-orm:
+        specifier: ^0.38.3
+        version: 0.38.4(@types/pg@8.23.1)(pg@8.23.1)
       zod:
         specifier: ^3.23.8
         version: 3.25.76

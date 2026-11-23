@@ -1,6 +1,7 @@
 import "dotenv/config";
 import pino from "pino";
 import { checkDbHealth, closePool } from "@gacha/db";
+import { Scheduler } from "./scheduler.js";
 
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -15,7 +16,15 @@ export const logger = pino({
     : undefined,
 });
 
-export async function bootWorker(): Promise<{ ready: boolean; dbConnected: boolean }> {
+let schedulerInstance: Scheduler | null = null;
+
+export function getScheduler(): Scheduler | null {
+  return schedulerInstance;
+}
+
+export async function bootWorker(
+  scheduler?: Scheduler
+): Promise<{ ready: boolean; dbConnected: boolean; schedulerStarted: boolean }> {
   logger.info("Booting gacha ingestion worker...");
   logger.info(`Node Environment: ${process.env.NODE_ENV || "development"}`);
   logger.info(`Timezone: ${process.env.TZ || "UTC"}`);
@@ -23,32 +32,35 @@ export async function bootWorker(): Promise<{ ready: boolean; dbConnected: boole
   const dbHealth = await checkDbHealth();
   if (!dbHealth.ok) {
     logger.warn({ error: dbHealth.error }, "Worker started with database warning");
-    return { ready: true, dbConnected: false };
+    return { ready: true, dbConnected: false, schedulerStarted: false };
   }
 
   logger.info(
     { dbLatencyMs: dbHealth.latencyMs },
-    "Database connection verified. Worker is running and idle (scheduler starts in F7)."
+    "Database connection verified. Initializing scheduler..."
   );
 
-  return { ready: true, dbConnected: true };
+  schedulerInstance = scheduler || new Scheduler();
+  try {
+    await schedulerInstance.start();
+    logger.info("pg-boss scheduler started and polling jobs active.");
+    return { ready: true, dbConnected: true, schedulerStarted: true };
+  } catch (err) {
+    logger.error({ err }, "Failed to start pg-boss scheduler");
+    return { ready: true, dbConnected: true, schedulerStarted: false };
+  }
 }
-
-let keepAliveInterval: NodeJS.Timeout | null = null;
 
 async function start() {
   await bootWorker();
-
-  // Keep worker process alive
-  keepAliveInterval = setInterval(() => {
-    logger.debug("Worker heartbeat (idle, awaiting F7 scheduler)");
-  }, 60000);
 }
 
 async function shutdown(signal: string) {
   logger.info({ signal }, "Worker shutdown initiated");
-  if (keepAliveInterval) clearInterval(keepAliveInterval);
   try {
+    if (schedulerInstance) {
+      await schedulerInstance.stop();
+    }
     await closePool();
     logger.info("Worker stopped cleanly");
     process.exit(0);

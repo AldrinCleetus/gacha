@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { bootWorker } from "../index.js";
+import { Scheduler } from "../scheduler.js";
 import * as dbModule from "@gacha/db";
 
 describe("Worker boot", () => {
@@ -13,9 +14,16 @@ describe("Worker boot", () => {
       latencyMs: 2,
     });
 
-    const res = await bootWorker();
+    const mockScheduler = {
+      start: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn().mockResolvedValue(undefined),
+    } as unknown as Scheduler;
+
+    const res = await bootWorker(mockScheduler);
     expect(res.ready).toBe(true);
     expect(res.dbConnected).toBe(true);
+    expect(res.schedulerStarted).toBe(true);
+    expect(mockScheduler.start).toHaveBeenCalled();
   });
 
   it("should handle initial DB disconnection gracefully", async () => {
@@ -28,5 +36,6 @@ describe("Worker boot", () => {
     const res = await bootWorker();
     expect(res.ready).toBe(true);
     expect(res.dbConnected).toBe(false);
+    expect(res.schedulerStarted).toBe(false);
   });
 });

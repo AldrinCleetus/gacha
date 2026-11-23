@@ -15,7 +15,7 @@ This document tracks the incremental implementation of the gacha backend accordi
 | **F4** | Observations + validation rules + raw payload storage | **Done** | `RawStore` archival; `source_observations` upsert with validation JSON; validation rules (date/weekday, tiers, formats, descending amounts); canonical fingerprinting; CLI `pnpm ingest` verified with valid & broken fixtures. |
 | **F5** | Draws + publishing (single-source behind config flag) | **Done** | Atomic publish transaction (`draws`, `prize_tiers`, `prize_entries`, `ingest_events`); idempotent re-ingest; status lifecycle; conflict detection (`needs_review`); verified via psql and CLI. |
 | **F6** | Public read API with OpenAPI/Swagger & ticket check | **Done** | Fastify read API under `/v1`; 6 endpoints; Zod validation; ETag & 304 handling; Cache-Control headers; per-IP rate limiting; Swagger UI at `/docs`; 64 tests passing; verified live with curl. |
-| **F7** | Scheduler (pg-boss jobs, IST windows, single-flight) | Todo | Pending |
+| **F7** | Scheduler (pg-boss jobs, IST windows, single-flight) | **Done** | pg-boss scheduler running in Docker worker; polling windows computed in IST; expected draw created automatically; single-flight deduplication; manual CLI `pnpm poll:manual` tested with live Onmanorama, faked clock, and fixtures; 76 tests passing. |
 | **F8** | keralalotteries.net adapter & winner agencies | Todo | Pending |
 | **F9** | Reconciler (two-source agreement, needs_review diff) | Todo | Pending |
 | **F10** | Official source: PDF parser & manual upload route | Todo | Pending |
@@ -536,6 +536,103 @@ curl -i http://localhost:3001/docs/json
 
 ### Next Feature
 - **F7: Scheduler**: pg-boss jobs, polling windows in IST per the design, single-flight per (source, draw), expected-draw creation from the weekday schedule, "results not out yet" behaviour, a nightly reconcile stub. Include a way to trigger a poll manually and to run on a faked clock for testing.
+
+---
+
+## Feature 7: Scheduler
+
+### What Was Built
+- **Clock Abstraction (`packages/shared/src/clock.ts`)**:
+  - `Clock` interface with `now(): Date` and `setTimeout` capabilities.
+  - `SystemClock`: Default production implementation using real wall clock.
+  - `FakeClock`: Test and simulation implementation allowing deterministic setting and advancing of time across IST timezone tests.
+- **IST Polling Window Calculator (`apps/worker/src/pollingWindow.ts`)**:
+  - Implements the polling schedule defined in Section 6.2 of the design doc:
+    - **Before Window** (< 15:00 IST): sleep / idle (or 1-hour heartbeat).
+    - **Peak Window** (15:00 – 17:30 IST): 2-minute polling interval.
+    - **Evening Window** (17:30 – 21:00 IST): 10-minute polling interval.
+    - **Night Window** (21:00 – 06:00 IST): 60-minute interval.
+    - **Alert Threshold**: `shouldAlert = true` if draw is not published by 18:30 IST (6:30 PM).
+- **Expected Draw Provisioner (`apps/worker/src/expectedDraw.ts`)**:
+  - Automatically identifies the scheduled weekly scheme for any target date in IST (`BT`, `SS`, `DL`, `KN`, `SK`, `KR`, `SM`).
+  - Computes the next sequential draw number (e.g. `BT-77` -> `BT-78`).
+  - Inserts the draw into `draws` with `status: 'expected'` if not already created.
+  - Logs `expected_created` in `ingest_events`.
+- **Single-Flight Poller & Source Polling Logic (`apps/worker/src/poller.ts`)**:
+  - `pollSourceForDraw()` enforces critical termination rules:
+    1. If the draw is already `published` in `draws`, polling immediately terminates.
+    2. If the draw has already been observed by this source (valid or invalid), polling for this source terminates to prevent redundant scrape traffic.
+  - Fetches the listing page polite rate-limited via `PoliteHttpClient` with ETag/304 caching.
+  - Locates the live article URL matching the draw date / scheme name, downloads raw payload, archives via `RawStore`, creates `source_observations`, validates, and publishes via atomic `publishObservation()`.
+- **Nightly Reconcile Stub (`apps/worker/src/reconcile.ts`)**:
+  - Queries draws published or expected across the trailing 7 days.
+  - Validates source observation coverage and logs `reconcile_nightly` in `ingest_events`.
+- **pg-boss Scheduler (`apps/worker/src/scheduler.ts`)**:
+  - Queues created:
+    - `daily-expected-draw`: Scheduled at `00:05` IST (`cron: '5 0 * * *'`) with `tz: 'Asia/Kolkata'`.
+    - `poll-cycle`: Scheduled at `*/2 15-17 * * *` (peak), `*/10 18-20 * * *` (evening), `0 21-23,0-5 * * *` (night).
+    - `poll-source-draw`: Dispatched for active sources using pg-boss `singletonKey: '${source}:${drawCode}'` to ensure strictly one active poll per source/draw.
+    - `nudge-poll`: Manual trigger queue for on-demand polling.
+    - `nightly-reconcile`: Scheduled at `23:30` IST (`cron: '30 23 * * *'`).
+  - Supports `scheduler.triggerPoll()` and manual polling on demand.
+- **Worker Integration (`apps/worker/src/index.ts`)**:
+  - Boots `Scheduler` instance on worker startup, connects pg-boss to the PostgreSQL database, registers workers, schedules cron jobs, and performs graceful teardown on SIGTERM / SIGINT.
+- **Manual Poller CLI (`apps/worker/src/cli/poll.ts` & `pnpm poll:manual`)**:
+  - CLI allowing developers or operators to trigger a poll cycle manually, simulate any IST wall-clock time via `--fake-time`, ingest via local fixture via `--fixture`, or `--force` re-poll.
+- **Comprehensive Unit Tests (`apps/worker/src/__tests__/scheduler.test.ts`)**:
+  - 12 comprehensive tests covering:
+    - IST date and window calculation across all periods (before window, peak, evening, night).
+    - 6:30 PM alert threshold flag.
+    - Deterministic expected draw creation and sequential draw numbering.
+    - Single-flight poller skipping already published draws and existing observations.
+    - Nightly reconcile audit trail.
+    - Fast-forwarding time with `FakeClock`.
+
+### Verification Steps
+```bash
+# 1. Verify worker logs in Docker (pg-boss starts and registers cron jobs in IST)
+docker logs gacha_worker --tail 30
+# Expected:
+# [info]: Initializing pg-boss scheduler...
+# [info]: pg-boss scheduler started and polling jobs active.
+
+# 2. Run manual poll cycle against live Onmanorama adapter
+pnpm poll:manual
+# Expected output:
+# [info]: Current IST time: ... Window phase: ...
+# [info]: Expected draw exists or created: BT-77 (or current weekday)
+# [info]: Discovered live article URL -> Ingested and published successfully!
+
+# 3. Simulate peak polling window (3:30 PM IST) using FakeClock
+pnpm poll:manual --fake-time 2026-11-23T15:30:00+05:30
+# Expected output:
+# [info]: Simulated FakeClock IST time: 2026-11-23T15:30:00+05:30
+# [info]: Window phase: peak, Interval: 2m, Polls active: true
+
+# 4. Trigger poll with a specific fixture and forced execution
+pnpm poll:manual --fixture packages/sources/src/onmanorama/fixtures/samrudhi-sm-82.html --force
+# Expected output:
+# [info]: Forcing ingestion using local fixture...
+# [info]: Draw published successfully or observation recorded!
+
+# 5. Run full test suite (76 tests across 12 files)
+pnpm test
+```
+
+### Decisions Made & Deviations from Design
+1. **Queue Initialization in pg-boss v12**:
+   In `pg-boss` v12+, workers cannot subscribe to a queue until it has been created. The scheduler explicitly calls `boss.createQueue()` before calling `boss.work()` to ensure smooth bootstrapping.
+2. **Native pg-boss Timezone Option**:
+   Configured cron jobs using pg-boss's native `{ tz: 'Asia/Kolkata' }` option, guaranteeing that daylight saving or container UTC offsets do not alter IST draw window timings.
+3. **Pluggable Clock Interface**:
+   Introduced `Clock` interface with `FakeClock` in `@gacha/shared` to allow zero-wait testing of time-based scheduling transitions, alert thresholds, and IST boundary calculations.
+
+### Known Issues
+- None.
+
+### Next Feature
+- **F8: keralalotteries.net adapter & winner agencies**: Implement adapter for keralalotteries.net (second source), capture agent / seller agency details into `winner_agencies`, add fixtures, assert exact ParsedDraw output in tests, and verify ingest via CLI.
+
 
 
 

@@ -15,6 +15,7 @@
     "@gacha/shared": "workspace:*",
     "@gacha/sources": "workspace:*",
     "dotenv": "^16.4.7",
+    "pg-boss": "^12.39.0",
     "pino": "^9.5.0",
     "pino-pretty": "^13.0.0"
   },

@@ -1,6 +1,16 @@
 import Fastify, { FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
+import etag from "@fastify/etag";
+import fastifySwagger from "@fastify/swagger";
+import fastifySwaggerUi from "@fastify/swagger-ui";
+import {
+  serializerCompiler,
+  validatorCompiler,
+  jsonSchemaTransform,
+} from "fastify-type-provider-zod";
 import { checkDbHealth } from "@gacha/db";
+import { v1Routes } from "./routes/v1/index.js";
 
 export function buildServer(): FastifyInstance {
   const isDev = process.env.NODE_ENV !== "production";
@@ -18,8 +28,55 @@ export function buildServer(): FastifyInstance {
     trustProxy: true,
   });
 
+  // Zod type provider integration
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
+
+  // CORS
   app.register(cors, {
     origin: true,
+  });
+
+  // Per-IP rate limiting (120 req/minute, localhost allowlisted)
+  app.register(rateLimit, {
+    max: 120,
+    timeWindow: "1 minute",
+    allowList: ["127.0.0.1", "::1"],
+  });
+
+  // Automatic ETag and 304 handling
+  app.register(etag);
+
+  // OpenAPI / Swagger documentation at /docs
+  app.register(fastifySwagger, {
+    openapi: {
+      info: {
+        title: "gacha API",
+        description: "Kerala lottery result checker API — fast, verified, public read API",
+        version: "1.0.0",
+      },
+      servers: [
+        {
+          url: "http://localhost:3001",
+          description: "Local development server",
+        },
+      ],
+      tags: [
+        { name: "schemes", description: "Lottery schemes and series information" },
+        { name: "draws", description: "Lottery draws and prize tiers" },
+        { name: "tickets", description: "Ticket checking and prize matching" },
+      ],
+    },
+    transform: jsonSchemaTransform,
+  });
+
+  app.register(fastifySwaggerUi, {
+    routePrefix: "/docs",
+    uiConfig: {
+      docExpansion: "list",
+      deepLinking: true,
+    },
+    staticCSP: true,
   });
 
   // Health check endpoint (checks DB connectivity)
@@ -45,6 +102,9 @@ export function buildServer(): FastifyInstance {
       uptimeSeconds: Math.floor(process.uptime()),
     });
   });
+
+  // Public read API under /v1
+  app.register(v1Routes, { prefix: "/v1" });
 
   return app;
 }

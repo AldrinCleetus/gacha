@@ -14,7 +14,7 @@ This document tracks the incremental implementation of the gacha backend accordi
 | **F3** | Source adapter interface + Onmanorama adapter | **Done** | Real HTML fixtures saved; listing + article parser built; PoliteHttpClient with rate-limiting, ETag/304 cache, and polite User-Agent; 44 tests passing; CLI `pnpm ingest:onmanorama` verified on live URL and fixture. |
 | **F4** | Observations + validation rules + raw payload storage | **Done** | `RawStore` archival; `source_observations` upsert with validation JSON; validation rules (date/weekday, tiers, formats, descending amounts); canonical fingerprinting; CLI `pnpm ingest` verified with valid & broken fixtures. |
 | **F5** | Draws + publishing (single-source behind config flag) | **Done** | Atomic publish transaction (`draws`, `prize_tiers`, `prize_entries`, `ingest_events`); idempotent re-ingest; status lifecycle; conflict detection (`needs_review`); verified via psql and CLI. |
-| **F6** | Public read API with OpenAPI/Swagger & ticket check | Todo | Pending |
+| **F6** | Public read API with OpenAPI/Swagger & ticket check | **Done** | Fastify read API under `/v1`; 6 endpoints; Zod validation; ETag & 304 handling; Cache-Control headers; per-IP rate limiting; Swagger UI at `/docs`; 64 tests passing; verified live with curl. |
 | **F7** | Scheduler (pg-boss jobs, IST windows, single-flight) | Todo | Pending |
 | **F8** | keralalotteries.net adapter & winner agencies | Todo | Pending |
 | **F9** | Reconciler (two-source agreement, needs_review diff) | Todo | Pending |
@@ -440,6 +440,103 @@ pnpm typecheck
 
 ### Next Feature
 - **F6: Public Read API**: Fastify read API with `GET /v1/schemes`, `GET /v1/draws` (with pagination, scheme filter, before filter), `GET /v1/draws/latest`, `GET /v1/draws/:id`, `POST /v1/draws/:id/check` using shared `checkTicket`, `GET /v1/draws/status`. Zod validation, ETag + Cache-Control, per-IP rate limiting, and OpenAPI/Swagger documentation at `/docs`.
+
+---
+
+## Feature 6: Public Read API with OpenAPI/Swagger & Ticket Check
+
+### What Was Built
+- **Endpoints (`apps/api/src/routes/v1/`)**:
+  - `GET /v1/schemes`: Returns all 7 weekly schemes with weekday, ticket price, known series letters (aggregated from `scheme_series`), and prize structure configuration.
+  - `GET /v1/draws`: Lists published draws sorted newest first with pagination (`limit`, defaults to 20, max 100), optional `scheme` filter (e.g. `SM`), and optional `before` date filter (`YYYY-MM-DD`).
+  - `GET /v1/draws/latest`: Returns the latest published draw (optionally filtered by `scheme`). Returns 404 if no published draw exists for the criteria.
+  - `GET /v1/draws/:id`: Returns full draw details including all prize tiers (`amount`, `matchType`, `entries`) and winner agencies. Supports lookup by UUID or draw code (`SM-82`, case-insensitive). Returns 404 if not found or not published.
+  - `POST /v1/draws/:id/check`: Verifies ticket number string (e.g. `"MO 747323"`) against the draw using the shared `checkTicket` engine. Returns complete `MatchResult` with celebration `kind`, winning `tier`, `amount`, `formattedAmount`, `matchedIndices`, truthful `closestMatch`, and summary.
+  - `GET /v1/draws/status`: Checks draw state for any calendar date in IST (defaults to current date). Identifies scheduled weekly scheme, status (`expected`, `observed`, `published`, `needs_review`), and attaches published draw metadata when available.
+- **Caching & HTTP Semantics (Design Doc Section 8.2)**:
+  - `@fastify/etag`: Automatic strong ETag generation on all GET endpoints with transparent `304 Not Modified` on `If-None-Match`.
+  - `/v1/draws/:id`: `Cache-Control: public, max-age=31536000, immutable`.
+  - `/v1/schemes`: `Cache-Control: public, max-age=300, stale-while-revalidate=60`.
+  - `/v1/draws` & `/v1/draws/latest`: `Cache-Control: public, max-age=60, s-maxage=60`.
+  - `/v1/draws/status`: `Cache-Control: public, max-age=15, stale-while-revalidate=15`.
+  - `/v1/draws/:id/check`: `Cache-Control: private, no-cache`.
+- **Security & Protection**:
+  - `@fastify/rate-limit`: Per-IP rate limiting (120 req/minute, standard `X-RateLimit-*` headers, localhost allowlisted).
+  - CORS enabled via `@fastify/cors`.
+- **OpenAPI / Swagger Documentation**:
+  - Full OpenAPI 3.0.3 specification dynamically generated via `fastify-type-provider-zod` + `@fastify/swagger`.
+  - Interactive Swagger UI served at `http://localhost:3001/docs`.
+  - Machine-readable specification served at `http://localhost:3001/docs/json`.
+- **Tests & Quality**:
+  - Added 8 unit/integration tests in `apps/api/src/__tests__/routes.test.ts` covering all endpoints, cache headers, error states, and Swagger spec generation.
+  - Test suite now includes **11 test files and 64 passing tests** across the monorepo.
+  - `pnpm lint` and `pnpm typecheck` both pass with 0 errors.
+
+### Verification Steps
+```bash
+# 1. Health check
+curl -i http://localhost:3001/health
+
+# 2. Get schemes list (with cache headers and known series)
+curl -i http://localhost:3001/v1/schemes
+
+# 3. List published draws
+curl -i http://localhost:3001/v1/draws?limit=5
+
+# 4. Get full draw by draw code (immutable cache: max-age=31536000, immutable)
+curl -i http://localhost:3001/v1/draws/SM-82
+
+# 5. Check 1st Prize Jackpot winning ticket
+curl -i -X POST http://localhost:3001/v1/draws/SM-82/check \
+  -H "Content-Type: application/json" \
+  -d '{"ticket":"MO 747323"}'
+# Expected response: {"kind":"jackpot","tier":"1st Prize","amount":10000000,"formattedAmount":"₹1,00,00,000","matchedIndices":[0,1,2,3,4,5,6,7],"summary":"Bumper 1st prize winner"}
+
+# 6. Check Consolation Prize ticket
+curl -i -X POST http://localhost:3001/v1/draws/SM-82/check \
+  -H "Content-Type: application/json" \
+  -d '{"ticket":"MN 747323"}'
+# Expected response: {"kind":"mid","tier":"Consolation Prize","amount":5000,"formattedAmount":"₹5,00,00","matchedIndices":[2,3,4,5,6,7],"closestMatch":"Same number as the 1st prize, different series"}
+
+# 7. Check 4th Prize (Last 4) ticket
+curl -i -X POST http://localhost:3001/v1/draws/SM-82/check \
+  -H "Content-Type: application/json" \
+  -d '{"ticket":"KL 110606"}'
+# Expected response: {"kind":"mid","tier":"4th Prize (Last 4)","amount":5000,"formattedAmount":"₹5,000","matchedIndices":[4,5,6,7]}
+
+# 8. Check Losing Ticket (with truthful near-miss calculation)
+curl -i -X POST http://localhost:3001/v1/draws/SM-82/check \
+  -H "Content-Type: application/json" \
+  -d '{"ticket":"MO 747324"}'
+# Expected response: {"kind":"none","tier":"No Prize","amount":0,"formattedAmount":"₹0","matchedIndices":[0,1,2,3,4,5,6],"closestMatch":"Matched 5 of the 6 digits of the 1st prize (747323)"}
+
+# 9. Check draw status for today (results not out yet)
+curl -i http://localhost:3001/v1/draws/status
+
+# 10. Check draw status for past published draw date
+curl -i "http://localhost:3001/v1/draws/status?date=2026-11-22"
+
+# 11. View OpenAPI JSON specification
+curl -i http://localhost:3001/docs/json
+
+# 12. View Swagger UI in browser
+# http://localhost:3001/docs
+```
+
+### Decisions Made & Deviations from Design
+1. **Flexible Draw Identifier (`:id`)**:
+   `GET /v1/draws/:id` and `POST /v1/draws/:id/check` accept either UUID (`draws.id`) or human-readable draw code (`draws.drawCode` e.g. `SM-82`, `KR-777`, case-insensitive). This makes API usage friendly and matches the frontend URLs.
+2. **Date Utility Extraction into `@gacha/shared`**:
+   Moved `getTodayIST()` and `getWeekdayFromDate()` into `@gacha/shared/src/date.ts` so date resolution in IST is centralized across source validation, API status queries, and worker scheduling.
+3. **Global Swagger Registration**:
+   Registered `@fastify/swagger` and `@fastify/swagger-ui` directly on root Fastify instance to ensure child routes (`/v1/*`) are discovered by the OpenAPI generator.
+
+### Known Issues
+- None.
+
+### Next Feature
+- **F7: Scheduler**: pg-boss jobs, polling windows in IST per the design, single-flight per (source, draw), expected-draw creation from the weekday schedule, "results not out yet" behaviour, a nightly reconcile stub. Include a way to trigger a poll manually and to run on a faked clock for testing.
+
 
 
 

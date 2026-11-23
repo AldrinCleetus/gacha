@@ -29,6 +29,7 @@ services:
       TZ: UTC
     volumes:
       - ./packages/db/src:/app/packages/db/src
+      - ./packages/db/drizzle:/app/packages/db/drizzle
     depends_on:
       postgres:
         condition: service_healthy

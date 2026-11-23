@@ -9,7 +9,7 @@ This document tracks the incremental implementation of the gacha backend accordi
 | Feature | Description | Status | Verification Summary |
 |---|---|---|---|
 | **F0** | Scaffold + Docker (Monorepo, Compose, Health API, Worker) | **Done** | `docker compose up` brings up postgres, migrate, api, worker. `GET /health` returns 200 with DB status. Worker logs boot. |
-| **F1** | Database schema, migrations & seed for 7 schemes | Todo | Pending |
+| **F1** | Database schema, migrations & seed for 7 schemes | **Done** | `migrate` runs against clean DB; 8 tables created; 7 schemes seeded; verified via psql queries. |
 | **F2** | Shared package: ParsedDraw, parseTicket, checkTicket | Todo | Pending |
 | **F3** | Source adapter interface + Onmanorama adapter | Todo | Pending |
 | **F4** | Observations + validation rules + raw payload storage | Todo | Pending |
@@ -66,3 +66,67 @@ docker compose logs migrate
 
 ### Next Feature
 - **F1: Database**: Drizzle schema and migrations for schemes, scheme_series, draws, prize_tiers, prize_entries, source_observations, winner_agencies, ingest_events, plus seed data for the 7 current weekly schemes.
+
+---
+
+## Feature 1: Database Schema, Migrations & Seeds
+
+### What Was Built
+- **Drizzle Schema Definitions (`packages/db/src/schema/`)**:
+  - `schemes`: Primary table for Kerala lottery schemes (`code`, `name`, `weekday`, `ticket_price`, `is_bumper`, `structure` jsonb).
+  - `scheme_series`: Composite primary key table (`scheme_code`, `series`) referencing `schemes` with cascade delete.
+  - `draws`: Historical and scheduled draws (`id` UUID, `scheme_code`, `draw_code`, `draw_date`, `status`, `published_at`, `fingerprint`, unique on `(scheme_code, draw_code)`, index on `draw_date desc`).
+  - `prize_tiers`: Tiers per draw (`draw_id`, `tier`, `amount` in rupees, `match_type`, primary key `(draw_id, tier)`).
+  - `prize_entries`: Winning ticket numbers / last-4 entries per draw tier (`draw_id`, `tier`, `entry`, composite primary key, index on `(draw_id, entry)`).
+  - `source_observations`: Raw ingest payloads and parsed observations per source (`draw_id`, `source`, `source_url`, `fetched_at`, `raw_object_key`, `content_hash`, `parsed` jsonb, `fingerprint`, `validation` jsonb, unique on `(draw_id, source, content_hash)`).
+  - `winner_agencies`: Agency details for winning tickets where published (`draw_id`, `tier`, `ticket`, `agency_name`, `agency_code`, `place`, `source`, composite primary key).
+  - `ingest_events`: Immutable audit log table (`id` bigserial, `draw_id`, `kind`, `detail` jsonb, `at` timestamptz).
+  - `relations`: Complete Drizzle relation mappings between all tables.
+- **SQL Migration (`packages/db/drizzle/0000_colorful_doctor_spectrum.sql`)**:
+  - Generated via `drizzle-kit` adhering strictly to Section 7 of the design document.
+- **Migration Runner (`packages/db/src/migrate.ts`)**:
+  - Automatically locates migration directory across host and container paths.
+  - Runs Drizzle migrations programmatically using `migrate()` from `drizzle-orm/node-postgres/migrator`.
+  - Automatically seeds the 7 weekly schemes on clean database startup.
+- **Weekly Scheme Seeds (`packages/db/src/seed.ts`)**:
+  - 1: `BT` - Bhagyathara (Mon, confirmed)
+  - 2: `SS` - Sthree Sakthi (Tue, confirmed)
+  - 3: `DL` - Dhanalekshmi (Wed, confirmed)
+  - 4: `KN` - Karunya Plus (Thu, confirmed)
+  - 5: `SK` - Suvarna Keralam (Fri, marked `needsConfirmation: true`, `confirmed: false`)
+  - 6: `KR` - Karunya (Sat, confirmed)
+  - 7: `SM` - Samrudhi (Sun, confirmed)
+  - Idempotent upsert via `onConflictDoUpdate`.
+- **Tests (`packages/db/src/__tests__/schema.test.ts`)**:
+  - Unit tests asserting 8 table definitions, 7 scheme seeds covering days 1-7, Suvarna Keralam confirmation flag, and drizzle SQL folder resolution.
+
+### Verification Steps
+```bash
+# 1. Reset database volume to verify clean migration and seeding
+docker compose down -v
+docker compose up -d
+
+# 2. Check migration runner logs
+docker compose logs migrate
+
+# 3. Query PostgreSQL for tables
+docker compose exec postgres psql -U postgres -d gacha -c "\dt"
+
+# 4. Query PostgreSQL for seeded schemes
+docker compose exec postgres psql -U postgres -d gacha -c "SELECT code, name, weekday, ticket_price, is_bumper FROM schemes ORDER BY weekday;"
+docker compose exec postgres psql -U postgres -d gacha -c "SELECT code, name, structure->>'dayName' as day, structure->>'confirmed' as confirmed, structure->>'note' as note FROM schemes ORDER BY weekday;"
+```
+
+### Decisions Made & Deviations from Design
+1. **Suvarna Keralam (Friday) Scheme Code**:
+   - As instructed, Friday's Suvarna Keralam scheme is assigned code `SK` and explicitly marked with `{ confirmed: false, needsConfirmation: true, note: "Scheme code 'SK' needs confirmation from real draw data (e.g. Suvarna Keralam Friday draw)" }` in its `structure` JSON. Once real draw data is parsed in F3/F4, the code can be confirmed or updated.
+2. **Prize Amount BigInt Representation**:
+   - `prize_tiers.amount` is defined as `bigint("amount", { mode: "number" })` in Drizzle. This fits lottery prize numbers cleanly without requiring custom BigInt JSON serialization while accurately storing values up to millions/crores in standard Postgres `bigint`.
+3. **Automated Seeding during Migration**:
+   - Integrated `seedSchemes()` directly into `runMigrations()` in `migrate.ts` so that whenever the `migrate` service runs on a fresh database, both table creation and initial scheme seeding happen before the API and worker services boot.
+
+### Known Issues
+- None.
+
+### Next Feature
+- **F2: Shared Package**: `ParsedDraw` and related Zod schemas, `parseTicket` (accepts "AB123456", "AB 123456", "ab-123456"), `checkTicket(ticket, draw) -> MatchResult` (full match, consolation, last-4, none, with `matchedIndices` and closest-match info). Thorough unit tests. CLI: `pnpm check-ticket <ticket> <fixture>`. No network.

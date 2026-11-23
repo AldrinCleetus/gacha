@@ -1,12 +1,15 @@
 import pg from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
+import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "./schema/index.js";
 
 const { Pool } = pg;
+
+export type DbClient = NodePgDatabase<typeof schema>;
 
 export function getDatabaseUrl(): string {
   return (
     process.env.DATABASE_URL ||
-    "postgresql://postgres:postgres@localhost:5432/gacha"
+    "postgresql://postgres:postgres@localhost:5433/gacha"
   );
 }
 
@@ -24,9 +27,9 @@ export function getPool(connectionString?: string): pg.Pool {
   return poolInstance;
 }
 
-export function getDb(pool?: pg.Pool) {
+export function getDb(pool?: pg.Pool): DbClient {
   const p = pool || getPool();
-  return drizzle(p);
+  return drizzle(p, { schema });
 }
 
 export async function closePool(): Promise<void> {

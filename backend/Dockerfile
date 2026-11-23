@@ -63,6 +63,7 @@ COPY --chown=node:node --from=builder /app/packages/sources/package.json ./packa
 COPY --chown=node:node --from=builder /app/packages/sources/dist ./packages/sources/dist
 COPY --chown=node:node --from=builder /app/packages/db/package.json ./packages/db/
 COPY --chown=node:node --from=builder /app/packages/db/dist ./packages/db/dist
+COPY --chown=node:node --from=builder /app/packages/db/drizzle ./packages/db/drizzle
 COPY --chown=node:node --from=builder /app/apps/api/package.json ./apps/api/
 COPY --chown=node:node --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --chown=node:node --from=builder /app/apps/worker/package.json ./apps/worker/

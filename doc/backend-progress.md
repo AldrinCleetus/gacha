@@ -19,7 +19,7 @@ This document tracks the incremental implementation of the gacha backend accordi
 | **F8** | keralalotteries.net adapter & winner agencies | **Done** | Adapter for keralalotteries.net built with live & fixture discovery; parsed winner agencies inserted into `winner_agencies`; exact `ParsedDraw` validated across Karunya KR-762 and Samrudhi SM-82 fixtures; CLI `pnpm ingest:keralalotteries` verified; 86 tests passing. |
 | **F9** | Reconciler (two-source agreement, needs_review diff) | **Done** | Two-source agreement rule enforced; compareDraws() and diff renderer built; reconciliation engine handles consensus, conflict, and late corrections; admin CLI (review, diff, publish) verified live; single-source publish flag disabled by default; 95 tests passing. |
 | **F10** | Official source: PDF parser & manual upload route | **Done** | Positioned PDF text extractor using pdfjs-dist coordinate clustering; official PDF parser for departmental headers, tiers, tickets, and winner agencies; POST /admin/ingest/pdf with multipart/binary upload and token auth; authoritative reconciliation rule; admin CLI pnpm ingest:official verified live; 114 tests passing. |
-| **F11** | Backfill, alert checks, metrics, deployment hardening | Todo | Pending |
+| **F11** | Backfill, alert checks, metrics, deployment hardening | **Done** | Historical draw backfill command (`pnpm backfill`) with rate limiting and dry-run; canary drift check (`pnpm canary`) catching layout drift before draw day; alert engine (`GET /admin/alerts`) checking 6:30 PM threshold, needs_review draws, degraded sources; Prometheus metrics (`GET /metrics`); production compose verification; 128 tests passing. |
 
 ---
 
@@ -880,6 +880,96 @@ docker exec -i gacha_postgres psql -U postgres -d gacha -c "SELECT id, draw_id, 
 
 ### Next Feature
 - **F11: Backfill, alert checks, metrics, deployment hardening**: History backfill command, draw window alert thresholds (6:30 PM un-published notification), Prometheus metrics, health checks, and production compose verification.
+
+---
+
+## Feature 11: Backfill, Alert Checks, Metrics, Deployment Hardening
+
+### What Was Built
+- **Historical Draw Backfill Engine & CLI** (`backend/packages/sources/src/backfill.ts` & `backend/packages/sources/src/cli/backfill.ts`):
+  - `runBackfill(options)`: Implements historical draw backfill for `onmanorama`, `keralalotteries_net`, or both (`all`).
+  - Idempotent: checks for existing observations per source and skips them by default unless `--force` is specified.
+  - Polite rate-limiting: default 2000ms delay between network requests (configurable via `--delay <ms>`).
+  - Supports `--limit <n>`, `--dry-run`, and `--source <name>`.
+  - CLI script `"backfill": "tsx packages/sources/src/cli/backfill.ts"` with formatted terminal output and summary tables.
+- **Source Canary Drift Detection & CLI** (`backend/packages/sources/src/canary.ts` & `backend/packages/sources/src/cli/canary.ts`):
+  - `runCanaryCheck()`: Evaluates discovery and latest draw parsing against active sources (`onmanorama`, `keralalotteries_net`) to catch HTML structural drift before draw day.
+  - Intelligent fallback: inspects up to the first 3 links to handle pre-draw live blog / announcement placeholders on draw days before results are announced.
+  - Reports ok/failure status, discovered counts, latest draw code/date, tier count, entry count, and roundtrip network latency.
+  - CLI script `"canary": "tsx packages/sources/src/cli/canary.ts"` exiting with 0 on healthy parsers and 1 on drift.
+- **System Alert Engine & Admin Alert Endpoint** (`backend/packages/sources/src/alerts.ts`, `backend/apps/api/src/routes/admin/index.ts`, `backend/apps/worker/src/alerts.ts`):
+  - `checkSystemAlerts(options)`: Evaluates critical conditions defined in Design Doc Sections 9 & 11:
+    1. `UNPUBLISHED_PAST_630PM` (Critical): Today's scheduled draw remains unpublished past the 18:30 IST alert threshold.
+    2. `DRAWS_NEEDING_REVIEW` (Warning): Draws held in `needs_review` state awaiting manual admin intervention.
+    3. `DEGRADED_SOURCES` (Warning): Active sources whose most recent observation failed validation or encountered repeated errors.
+  - Automatic event logging: records `alert_triggered` in `ingest_events` with 15-minute deduplication to prevent event spam.
+  - `GET /admin/alerts`: Token-authenticated admin endpoint returning `{ ok, alertCount, activeAlerts, evaluatedAt }`.
+  - Worker integration: `Scheduler` registers a `SYSTEM_ALERTS` queue and a recurring 15-minute IST schedule (`*/15 * * * *`).
+- **Prometheus Metrics Endpoint** (`backend/apps/api/src/routes/metrics.ts`):
+  - `GET /metrics`: Standard Prometheus text exposition format (`version=0.0.4`):
+    - `gacha_up` (gauge: 1)
+    - `gacha_database_up` (gauge: 1 if DB ping succeeds, 0 otherwise)
+    - `gacha_uptime_seconds` (process uptime)
+    - `gacha_db_latency_ms` (live database query roundtrip latency)
+    - `gacha_process_heap_bytes` (process heap memory usage)
+    - `gacha_draws_total{status="..."}` (counts grouped by `published`, `expected`, `observed`, `needs_review`)
+    - `gacha_unresolved_reviews_count` (draws needing review)
+    - `gacha_source_observations_total{source="...",valid="..."}` (observation counts per source and validation state)
+    - `gacha_active_alerts_count{severity="..."}` (active critical and warning alerts count)
+- **Production Compose Verification** (`backend/compose.prod.yml`):
+  - Verified syntax, service topologies, memory resource limits (384M-512M), health checks, network isolation, and volume mappings via `docker compose -f compose.prod.yml config`.
+- **Test Suite**:
+  - `packages/sources/src/__tests__/backfill.test.ts` (4 tests)
+  - `packages/sources/src/__tests__/canary.test.ts` (2 tests)
+  - `packages/sources/src/__tests__/alerts.test.ts` (5 tests)
+  - `apps/api/src/__tests__/metrics.test.ts` (3 tests)
+  - Overall test suite expanded to **20 test files, 128 tests passing (100% pass rate)**.
+
+### Verification Performed
+1. **Unit and Integration Tests**:
+   - `pnpm test` -> 20 test files, 128 tests passed.
+   - `pnpm typecheck` -> Clean pass (0 errors).
+   - `pnpm lint` -> Clean pass (0 errors).
+2. **Production Compose Config Validation**:
+   - `docker compose -f backend/compose.prod.yml config` -> Validated complete compose file structure.
+3. **Canary CLI Live Execution**:
+   - `pnpm canary` -> Discovered 10 Onmanorama links and 91 Keralalotteries links; parsed latest draws BT-77 and BT-81 with 10 tiers each; all checks passed.
+4. **Historical Backfill Live Execution**:
+   - `pnpm backfill --dry-run -n 3` -> Verified discovery and skip logic.
+   - `pnpm backfill -s onmanorama -n 3 --delay 1000` -> Ingested historical draw `KR-777` with rate limiting.
+5. **Live API Endpoints**:
+   - `curl http://localhost:3001/metrics` -> Verified Prometheus exposition format with DB latency and draw status gauges.
+   - `curl -H "x-admin-key: gacha-admin-secret-key" http://localhost:3001/admin/alerts` -> Verified detection of `DRAWS_NEEDING_REVIEW` alert for `SM-82`.
+
+### Decisions Made & Deviations from Design
+1. **Canary Pre-Draw Placeholder Tolerance**:
+   On draw days before 3:00 PM IST, websites publish placeholder articles ("Kerala lottery results today live"). To prevent false positive canary failures, `runCanaryCheck` evaluates up to the first 3 links until a completed draw is parsed.
+2. **Prometheus Text Generation**:
+   Rather than introducing large external Prometheus client dependencies, the Prometheus exposition format is generated directly via standard text templating, ensuring zero overhead and instant response times.
+3. **Alert Deduplication**:
+   When `checkSystemAlerts` detects active conditions, it checks `ingest_events` for a recent `alert_triggered` event for the same condition within the last 15 minutes before inserting, avoiding database event pollution on high-frequency polling.
+
+### Known Issues
+- None.
+
+---
+
+## Roadmap Completion Summary (F0 — F11)
+
+All 12 features outlined in `doc/gacha Backend — Design Doc.md` have been fully implemented, rigorously tested, docker-verified, and documented:
+- **F0**: Scaffold + Docker
+- **F1**: Database Schema, Migrations, Seeds
+- **F2**: Shared Package (`@gacha/shared`)
+- **F3**: Onmanorama Adapter
+- **F4**: Observations + Validation Engine
+- **F5**: Draws + Publishing
+- **F6**: Public Read API (`/v1`)
+- **F7**: Scheduler (pg-boss, IST polling windows)
+- **F8**: keralalotteries.net Adapter & Winner Agencies
+- **F9**: Reconciler (two-source consensus)
+- **F10**: Official Source: PDF Parser & Manual Upload Admin Route
+- **F11**: Backfill, Alert Checks, Metrics, Deployment Hardening
+
 
 
 

@@ -13,6 +13,7 @@ import {
 import { checkDbHealth } from "@gacha/db";
 import { v1Routes } from "./routes/v1/index.js";
 import { adminRoutes } from "./routes/admin/index.js";
+import { metricsRoutes } from "./routes/metrics.js";
 
 export function buildServer(): FastifyInstance {
   const isDev = process.env.NODE_ENV !== "production";
@@ -126,6 +127,9 @@ export function buildServer(): FastifyInstance {
 
   // Admin routes under /admin (protected by token auth)
   app.register(adminRoutes, { prefix: "/admin" });
+
+  // Prometheus metrics endpoint at /metrics
+  app.register(metricsRoutes);
 
   return app;
 }

@@ -12,6 +12,8 @@
     "ingest:onmanorama": "tsx packages/sources/src/onmanorama/cli.ts",
     "ingest:keralalotteries": "tsx packages/sources/src/keralalotteries/cli.ts",
     "ingest:official": "tsx packages/sources/src/official/cli.ts",
+    "backfill": "tsx packages/sources/src/cli/backfill.ts",
+    "canary": "tsx packages/sources/src/cli/canary.ts",
     "poll:manual": "tsx apps/worker/src/cli/poll.ts",
     "lint": "eslint .",
     "typecheck": "tsc -b",

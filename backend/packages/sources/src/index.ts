@@ -29,4 +29,6 @@ export {
   extractTextLinesFromPdf,
   computeBufferHash,
 } from "./official/extractor.js";
-
+export * from "./backfill.js";
+export * from "./canary.js";
+export * from "./alerts.js";

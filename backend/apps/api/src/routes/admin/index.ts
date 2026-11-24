@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { getDb, draws, sourceObservations, eq, inArray } from "@gacha/db";
 import { ParsedDraw } from "@gacha/shared";
-import { ingestObservation, forcePublishDraw, compareDraws, renderDiffText } from "@gacha/sources";
+import { ingestObservation, forcePublishDraw, compareDraws, renderDiffText, checkSystemAlerts } from "@gacha/sources";
 
 export const adminRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   const server = app.withTypeProvider<ZodTypeProvider>();
@@ -207,6 +207,25 @@ export const adminRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
           error: msg,
         });
       }
+    }
+  );
+
+  /**
+   * GET /admin/alerts
+   * Inspect active system alerts (unpublished past 6:30 PM, draws needing review, degraded sources)
+   */
+  server.get(
+    "/alerts",
+    {
+      schema: {
+        description: "Get active system alerts (admin only)",
+        tags: ["admin"],
+      },
+    },
+    async (_req, reply) => {
+      const db = getDb();
+      const result = await checkSystemAlerts({ db, recordEvents: true });
+      return reply.send(result);
     }
   );
 };

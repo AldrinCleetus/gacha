@@ -5,6 +5,7 @@ import { ensureExpectedDraw, EnsureExpectedDrawResult } from "./expectedDraw.js"
 import { pollSourceForDraw, PollDrawOptions, PollDrawResult } from "./poller.js";
 import { runNightlyReconcile } from "./reconcile.js";
 import { getPollingWindowInfo, PollingWindowInfo } from "./pollingWindow.js";
+import { checkSystemAlerts } from "@gacha/sources";
 import { logger } from "./index.js";
 
 export const QUEUES = {
@@ -13,6 +14,7 @@ export const QUEUES = {
   POLL_SOURCE_DRAW: "poll-source-draw",
   NUDGE_POLL: "nudge-poll",
   NIGHTLY_RECONCILE: "nightly-reconcile",
+  SYSTEM_ALERTS: "system-alerts",
 } as const;
 
 export interface SchedulerOptions {
@@ -130,6 +132,19 @@ export class Scheduler {
       logger.info("Processing nightly reconcile job...");
       return await runNightlyReconcile(this.db, this.clock);
     });
+
+    // 6. Periodic system alerts check worker
+    await this.boss.work(QUEUES.SYSTEM_ALERTS, async () => {
+      logger.info("Running scheduled system alerts evaluation...");
+      const result = await checkSystemAlerts({ db: this.db, clock: this.clock });
+      if (!result.ok) {
+        logger.warn(
+          { count: result.alertCount, alerts: result.activeAlerts },
+          "Active system alerts detected!"
+        );
+      }
+      return result;
+    });
   }
 
   private async registerSchedules(): Promise<void> {
@@ -150,6 +165,11 @@ export class Scheduler {
 
     // Schedule 4: Nightly reconciliation at 02:00 IST every night
     await this.boss.schedule(QUEUES.NIGHTLY_RECONCILE, "0 2 * * *", {}, {
+      tz: "Asia/Kolkata",
+    });
+
+    // Schedule 5: Periodic system alerts evaluation every 15 minutes
+    await this.boss.schedule(QUEUES.SYSTEM_ALERTS, "*/15 * * * *", {}, {
       tz: "Asia/Kolkata",
     });
   }

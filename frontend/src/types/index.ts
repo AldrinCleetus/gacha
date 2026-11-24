@@ -54,6 +54,17 @@ export const MatchResultSchema = z.object({
 });
 export type MatchResult = z.infer<typeof MatchResultSchema>;
 
+// Winner Agency Structure
+export const WinnerAgencySchema = z.object({
+  tier: z.string(),
+  ticket: z.string(),
+  agencyName: z.string().nullable().optional(),
+  agencyCode: z.string().nullable().optional(),
+  place: z.string().nullable().optional(),
+  source: z.string().optional(),
+});
+export type WinnerAgency = z.infer<typeof WinnerAgencySchema>;
+
 // Draw Structure
 export const DrawSchema = z.object({
   id: z.string(),
@@ -93,6 +104,7 @@ export const DrawSchema = z.object({
       ),
     })
     .optional(),
+  agencies: z.array(WinnerAgencySchema).optional(),
 });
 export type Draw = z.infer<typeof DrawSchema>;
 

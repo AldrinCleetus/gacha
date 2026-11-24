@@ -9,7 +9,7 @@ import { CountUp } from "@/components/reveal/CountUp";
 import { parseTicket } from "@/lib/parser";
 import { checkTicket, formatINR } from "@/lib/checkTicket";
 import { sound } from "@/lib/sound";
-import { mockLotteryApi } from "@/lib/mockApi";
+import { lotteryApi } from "@/lib/apiClient";
 import { Draw, SavedTicket, MatchResult } from "@/types";
 import { useCheckStore } from "@/store/useCheckStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -93,7 +93,7 @@ export function Check({ initialChecking = false }: CheckProps) {
 
   // Load draws & history
   useEffect(() => {
-    mockLotteryApi.getDraws().then((d) => {
+    lotteryApi.getDraws().then((d) => {
       setDraws(d);
       if (!selectedDrawId && d.length > 0) {
         const latestPublished = d.find((draw) => draw.isPublished) || d[0];
@@ -101,7 +101,7 @@ export function Check({ initialChecking = false }: CheckProps) {
       }
     });
 
-    mockLotteryApi.getHistory().then((history) => {
+    lotteryApi.getHistory().then((history) => {
       setRecentTickets(history.slice(0, 5));
     });
   }, [selectedDrawId, setSelectedDrawId]);
@@ -349,7 +349,7 @@ export function Check({ initialChecking = false }: CheckProps) {
     setLastResult(result, false);
 
     // Save ticket uniquely to mock history
-    mockLotteryApi.saveTicket({
+    lotteryApi.saveTicket({
       id: `tkt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       ticketString: parsed.fullTicketString,
       schemeCode: parsed.schemeCode,
@@ -364,7 +364,7 @@ export function Check({ initialChecking = false }: CheckProps) {
     });
 
     // Refresh history
-    mockLotteryApi.getHistory().then((h) => setRecentTickets(h.slice(0, 5)));
+    lotteryApi.getHistory().then((h) => setRecentTickets(h.slice(0, 5)));
 
     // Trigger in-place zoom-out morph and reveal
     startCheckingSequence(result);

@@ -1,14 +1,14 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/useAuthStore";
-import { mockLotteryApi } from "@/lib/mockApi";
+import { lotteryApi } from "@/lib/apiClient";
 
 export function Login() {
   const navigate = useNavigate();
   const { login } = useAuthStore();
 
   const handleGoogleSignIn = async () => {
-    const session = await mockLotteryApi.signInWithGoogle();
+    const session = await lotteryApi.signInWithGoogle();
     login(session.user);
     navigate("/check");
   };

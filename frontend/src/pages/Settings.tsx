@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useSettingsStore, ThemeMode } from "@/store/useSettingsStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useDemoStore } from "@/store/useDemoStore";
-import { mockLotteryApi } from "@/lib/mockApi";
+import { lotteryApi } from "@/lib/apiClient";
 import {
   Settings as SettingsIcon,
   Sun,
@@ -33,25 +33,25 @@ export function Settings() {
     setReducedMotion,
   } = useSettingsStore();
   const { session, logout } = useAuthStore();
-  const { openDemoMenu, setMockNewUser } = useDemoStore();
+  const { openDemoMenu, setMockNewUser, useMockApi, setUseMockApi } = useDemoStore();
 
   const [message, setMessage] = useState<string | null>(null);
 
   const handleSignOut = async () => {
-    await mockLotteryApi.signOut();
+    await lotteryApi.signOut();
     logout();
     navigate("/login");
   };
 
   const handleResetData = async () => {
-    await mockLotteryApi.resetHistory();
+    await lotteryApi.resetHistory();
     setMockNewUser(false);
     setMessage("Restored ~40 sample historical lotteries.");
     setTimeout(() => setMessage(null), 3000);
   };
 
   const handleClearData = async () => {
-    await mockLotteryApi.resetHistory([]);
+    await lotteryApi.resetHistory([]);
     setMockNewUser(true);
     setMessage("Local lottery history cleared. New user state active.");
     setTimeout(() => setMessage(null), 3000);
@@ -214,6 +214,55 @@ export function Settings() {
               />
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Backend API Connection Source */}
+      <div className="p-5 rounded-3xl bg-surface border border-border shadow-soft space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xs font-bold text-muted uppercase tracking-wider">Data Source</h2>
+            <p className="text-[11px] text-muted mt-0.5">Switch between live Fastify backend and offline demo mock data</p>
+          </div>
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+            !useMockApi ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" : "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+          }`}>
+            {!useMockApi ? "Connected to Backend" : "Demo Mode Active"}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <button
+            onClick={() => {
+              setUseMockApi(false);
+              setMessage("Switched to Live Backend API (:3001).");
+              setTimeout(() => setMessage(null), 3000);
+            }}
+            className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+              !useMockApi
+                ? "bg-primary text-white border-primary shadow-soft"
+                : "bg-surface border-border text-main hover:bg-input-box"
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Live Backend</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setUseMockApi(true);
+              setMessage("Switched to Local Demo Mock Data.");
+              setTimeout(() => setMessage(null), 3000);
+            }}
+            className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+              useMockApi
+                ? "bg-primary text-white border-primary shadow-soft"
+                : "bg-surface border-border text-main hover:bg-input-box"
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            <span>Mock / Demo</span>
+          </button>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { mockLotteryApi } from "@/lib/mockApi";
+import { lotteryApi } from "@/lib/apiClient";
 import { Draw, SavedTicket } from "@/types";
 import { getScheme } from "@/lib/schemes";
 import { formatINR } from "@/lib/checkTicket";
@@ -20,12 +20,12 @@ export function ResultBreakdown() {
     if (!drawId) return;
 
     setLoading(true);
-    mockLotteryApi.getDrawById(drawId).then((d) => {
+    lotteryApi.getDrawById(drawId).then((d) => {
       setDraw(d);
       setLoading(false);
     });
 
-    mockLotteryApi.getHistory().then((history) => {
+    lotteryApi.getHistory().then((history) => {
       const match = history.find((t) => t.drawId === drawId);
       if (match) {
         setUserTicket(match);
@@ -272,6 +272,44 @@ export function ResultBreakdown() {
               </button>
             )}
           </div>
+
+          {/* Winner Agencies & Agents */}
+          {draw.agencies && draw.agencies.length > 0 && (
+            <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border shadow-soft space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-main">
+                  Winning Ticket Agencies & Districts
+                </span>
+                <span className="text-[11px] text-muted">Official Records</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {draw.agencies.map((agency, aIdx) => (
+                  <div
+                    key={aIdx}
+                    className="p-3 rounded-xl bg-input-box border border-input-border text-xs space-y-1"
+                  >
+                    <div className="flex items-center justify-between font-mono font-bold text-main">
+                      <span>{agency.ticket}</span>
+                      <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-surface border border-border text-muted">
+                        Tier {agency.tier}
+                      </span>
+                    </div>
+                    {agency.agencyName && (
+                      <div className="text-muted font-medium truncate">
+                        Agency: <span className="text-main">{agency.agencyName}</span>
+                      </div>
+                    )}
+                    {(agency.place || agency.agencyCode) && (
+                      <div className="text-[11px] text-muted flex items-center justify-between pt-0.5">
+                        <span>{agency.place || ""}</span>
+                        {agency.agencyCode && <span>Code: {agency.agencyCode}</span>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

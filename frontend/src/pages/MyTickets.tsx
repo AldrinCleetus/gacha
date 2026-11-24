@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { mockLotteryApi } from "@/lib/mockApi";
+import { lotteryApi } from "@/lib/apiClient";
 import { SavedTicket } from "@/types";
 import { getScheme } from "@/lib/schemes";
 import { formatINR } from "@/lib/checkTicket";
@@ -20,7 +20,7 @@ export function MyTickets() {
   const [sortBy, setSortBy] = useState<"NEWEST" | "OLDEST" | "PRIZE">("NEWEST");
 
   useEffect(() => {
-    mockLotteryApi.getHistory().then((t) => {
+    lotteryApi.getHistory().then((t) => {
       setTickets(t);
       setLoading(false);
     });

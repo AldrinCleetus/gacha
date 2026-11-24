@@ -28,8 +28,36 @@
         "text": "#5B438A"
       }
     },
+    "SS": {
+      "code": "SS",
+      "name": "Sthree Sakthi",
+      "drawPrefix": "SS",
+      "price": 40,
+      "weekday": "Tuesday",
+      "firstPrize": "₹75,00,000",
+      "theme": {
+        "primary": "#5B438A",
+        "bg": "#ECE7F5",
+        "border": "#DAD1EC",
+        "text": "#5B438A"
+      }
+    },
     "A": {
       "code": "A",
+      "name": "Akshaya",
+      "drawPrefix": "AK",
+      "price": 40,
+      "weekday": "Wednesday",
+      "firstPrize": "₹70,00,000",
+      "theme": {
+        "primary": "#8A5A1B",
+        "bg": "#F5ECE1",
+        "border": "#EAD7C4",
+        "text": "#8A5A1B"
+      }
+    },
+    "AK": {
+      "code": "AK",
       "name": "Akshaya",
       "drawPrefix": "AK",
       "price": 40,
@@ -54,6 +82,76 @@
         "bg": "#E1EFF5",
         "border": "#C4DFEA",
         "text": "#1B638A"
+      }
+    },
+    "KN": {
+      "code": "KN",
+      "name": "Karunya Plus",
+      "drawPrefix": "KN",
+      "price": 40,
+      "weekday": "Thursday",
+      "firstPrize": "₹80,00,000",
+      "theme": {
+        "primary": "#1B638A",
+        "bg": "#E1EFF5",
+        "border": "#C4DFEA",
+        "text": "#1B638A"
+      }
+    },
+    "NR": {
+      "code": "NR",
+      "name": "Nirmal",
+      "drawPrefix": "NR",
+      "price": 40,
+      "weekday": "Friday",
+      "firstPrize": "₹70,00,000",
+      "theme": {
+        "primary": "#0A7063",
+        "bg": "#E4F4F1",
+        "border": "#CEECE6",
+        "text": "#0A7063"
+      }
+    },
+    "KR": {
+      "code": "KR",
+      "name": "Karunya",
+      "drawPrefix": "KR",
+      "price": 40,
+      "weekday": "Saturday",
+      "firstPrize": "₹80,00,000",
+      "theme": {
+        "primary": "#8A2A1B",
+        "bg": "#F5E4E1",
+        "border": "#EACEC4",
+        "text": "#8A2A1B"
+      }
+    },
+    "SM": {
+      "code": "SM",
+      "name": "Samrudhi",
+      "drawPrefix": "SM",
+      "price": 50,
+      "weekday": "Sunday",
+      "firstPrize": "₹1,00,00,000",
+      "theme": {
+        "primary": "#7A1B8A",
+        "bg": "#F4E1F5",
+        "border": "#ECCEEC",
+        "text": "#7A1B8A"
+      }
+    },
+    "BT": {
+      "code": "BT",
+      "name": "Bhagyathara",
+      "drawPrefix": "BT",
+      "price": 50,
+      "weekday": "Sunday",
+      "firstPrize": "₹1,00,00,000",
+      "theme": {
+        "primary": "#7A1B8A",
+        "bg": "#F4E1F5",
+        "border": "#ECCEEC",
+        "text": "#7A1B8A"
       }
     }
   }

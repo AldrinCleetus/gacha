@@ -7,7 +7,7 @@ import { CountUp } from "@/components/reveal/CountUp";
 import { useCheckStore } from "@/store/useCheckStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useDemoStore } from "@/store/useDemoStore";
-import { mockLotteryApi } from "@/lib/mockApi";
+import { lotteryApi } from "@/lib/apiClient";
 import { checkTicket, formatINR } from "@/lib/checkTicket";
 import { sound } from "@/lib/sound";
 import { Draw, MatchResult } from "@/types";
@@ -66,7 +66,7 @@ export function Reveal() {
 
   // Load Draw and MatchResult
   useEffect(() => {
-    mockLotteryApi.getDraws().then((drawList) => {
+    lotteryApi.getDraws().then((drawList) => {
       const active =
         drawList.find((d) => d.id === selectedDrawId) ||
         drawList.find((d) => d.schemeCode === effectiveTicket.charAt(0)) ||

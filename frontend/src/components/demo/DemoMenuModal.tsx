@@ -1,7 +1,7 @@
 import React from "react";
 import { useDemoStore, ForcedOutcome } from "@/store/useDemoStore";
-import { mockLotteryApi } from "@/lib/mockApi";
-import { X, Trophy, Award, Sparkles, Frown, CheckCircle2, UserCheck, RefreshCw } from "lucide-react";
+import { lotteryApi } from "@/lib/apiClient";
+import { X, Trophy, Award, Sparkles, Frown, CheckCircle2, UserCheck, RefreshCw, Server, Database } from "lucide-react";
 
 export function DemoMenuModal() {
   const {
@@ -11,6 +11,8 @@ export function DemoMenuModal() {
     setForcedOutcome,
     mockNewUser,
     setMockNewUser,
+    useMockApi,
+    setUseMockApi,
   } = useDemoStore();
 
   if (!isDemoMenuOpen) return null;
@@ -49,13 +51,13 @@ export function DemoMenuModal() {
   ];
 
   const handleSeedTickets = async () => {
-    await mockLotteryApi.resetHistory();
+    await lotteryApi.resetHistory();
     setMockNewUser(false);
     window.location.reload();
   };
 
   const handleSetNewUser = async () => {
-    await mockLotteryApi.resetHistory([]);
+    await lotteryApi.resetHistory([]);
     setMockNewUser(true);
     window.location.reload();
   };
@@ -146,6 +148,39 @@ export function DemoMenuModal() {
                   New User State
                 </div>
                 <p className="text-[11px] text-muted mt-0.5">Empty dashboard & lotteries</p>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-muted block mb-2">
+              API Data Source
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setUseMockApi(false)}
+                className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  !useMockApi
+                    ? "bg-primary text-white border-primary shadow-soft"
+                    : "bg-surface border-border text-main hover:bg-input-box"
+                }`}
+              >
+                <Server className="w-3.5 h-3.5" />
+                <span>Live Backend (:3001)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setUseMockApi(true)}
+                className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  useMockApi
+                    ? "bg-primary text-white border-primary shadow-soft"
+                    : "bg-surface border-border text-main hover:bg-input-box"
+                }`}
+              >
+                <Database className="w-3.5 h-3.5" />
+                <span>Demo / Mock Data</span>
               </button>
             </div>
           </div>

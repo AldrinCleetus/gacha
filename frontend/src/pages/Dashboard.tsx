@@ -12,7 +12,7 @@ import {
   CartesianGrid,
   Legend,
 } from "recharts";
-import { mockLotteryApi } from "@/lib/mockApi";
+import { lotteryApi } from "@/lib/apiClient";
 import { UserStats } from "@/types";
 import { formatINR } from "@/lib/checkTicket";
 import { getScheme } from "@/lib/schemes";
@@ -37,7 +37,7 @@ export function Dashboard() {
   const [timeRange, setTimeRange] = useState<"30D" | "6M" | "ALL">("ALL");
 
   useEffect(() => {
-    mockLotteryApi.getStats().then((data) => {
+    lotteryApi.getStats().then((data) => {
       if (mockNewUser) {
         setStats({
           totalTickets: 0,
@@ -101,7 +101,7 @@ export function Dashboard() {
           </Link>
           <button
             onClick={async () => {
-              await mockLotteryApi.resetHistory();
+              await lotteryApi.resetHistory();
               setMockNewUser(false);
               window.location.reload();
             }}

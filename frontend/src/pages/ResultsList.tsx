@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { mockLotteryApi } from "@/lib/mockApi";
+import { lotteryApi } from "@/lib/apiClient";
 import { Draw } from "@/types";
 import { getScheme } from "@/lib/schemes";
 import { Search, Calendar, ChevronRight } from "lucide-react";
@@ -12,7 +12,7 @@ export function ResultsList() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    mockLotteryApi.getDraws().then((d) => {
+    lotteryApi.getDraws().then((d) => {
       setDraws(d);
       setLoading(false);
     });

@@ -9,6 +9,7 @@ import {
 import {
   ingestObservation,
   onmanoramaAdapter,
+  keralalotteriesAdapter,
   IngestObservationResult,
 } from "@gacha/sources";
 import { logger } from "./index.js";
@@ -104,22 +105,21 @@ export async function pollSourceForDraw(
   // 4. Resolve URL or fixture to ingest
   let targetUrl = options.url;
   if (!targetUrl && !options.fixturePath) {
-    if (source === "onmanorama") {
-      try {
-        const discovered = await onmanoramaAdapter.discover();
-        if (drawRecord) {
-          const match = discovered.find(
-            (d) =>
-              d.schemeCode === drawRecord?.schemeCode &&
-              (d.drawCode === drawRecord?.drawCode || d.drawDate === drawRecord?.drawDate)
-          );
-          if (match) targetUrl = match.url;
-        } else if (discovered.length > 0) {
-          targetUrl = discovered[0].url;
-        }
-      } catch (err) {
-        logger.warn({ err, source }, "Discovery failed; results may not be out yet");
+    try {
+      const adapter = source === "keralalotteries_net" ? keralalotteriesAdapter : onmanoramaAdapter;
+      const discovered = await adapter.discover();
+      if (drawRecord) {
+        const match = discovered.find(
+          (d) =>
+            d.schemeCode === drawRecord?.schemeCode &&
+            (d.drawCode === drawRecord?.drawCode || d.drawDate === drawRecord?.drawDate)
+        );
+        if (match) targetUrl = match.url;
+      } else if (discovered.length > 0) {
+        targetUrl = discovered[0].url;
       }
+    } catch (err) {
+      logger.warn({ err, source }, "Discovery failed; results may not be out yet");
     }
   }
 

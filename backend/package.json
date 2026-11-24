@@ -9,6 +9,7 @@
     "check-ticket": "tsx packages/shared/src/cli.ts",
     "ingest": "tsx packages/sources/src/cli/ingest.ts",
     "ingest:onmanorama": "tsx packages/sources/src/onmanorama/cli.ts",
+    "ingest:keralalotteries": "tsx packages/sources/src/keralalotteries/cli.ts",
     "poll:manual": "tsx apps/worker/src/cli/poll.ts",
     "lint": "eslint .",
     "typecheck": "tsc -b",

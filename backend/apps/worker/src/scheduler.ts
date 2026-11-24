@@ -192,29 +192,36 @@ export class Scheduler {
       );
     }
 
-    // Single-flight dispatch per (source, drawCode)
-    const source = "onmanorama";
+    // Single-flight dispatch per (source, drawCode) for active sources
+    const activeSources: Array<"onmanorama" | "keralalotteries_net"> = [
+      "onmanorama",
+      "keralalotteries_net",
+    ];
     const drawCode = expected?.drawCode || "TODAY";
-    const singletonKey = `${source}:${drawCode}`;
+    let lastJobId: string | null = null;
 
-    const jobId = await this.boss.send(
-      QUEUES.POLL_SOURCE_DRAW,
-      {
-        source,
-        drawCode: expected?.drawCode,
-        drawId: expected?.drawId,
-      },
-      {
-        singletonKey,
-      }
-    );
+    for (const source of activeSources) {
+      const singletonKey = `${source}:${drawCode}`;
+      const jobId = await this.boss.send(
+        QUEUES.POLL_SOURCE_DRAW,
+        {
+          source,
+          drawCode: expected?.drawCode,
+          drawId: expected?.drawId,
+        },
+        {
+          singletonKey,
+        }
+      );
+      if (jobId) lastJobId = jobId;
+      logger.info({ source, singletonKey, jobId }, "Dispatched single-flight poll job.");
+    }
 
-    logger.info({ singletonKey, jobId }, "Dispatched single-flight poll job.");
     return {
       window,
       expectedDraw: expected,
       dispatched: true,
-      jobId,
+      jobId: lastJobId,
     };
   }
 

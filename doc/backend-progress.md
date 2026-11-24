@@ -16,7 +16,7 @@ This document tracks the incremental implementation of the gacha backend accordi
 | **F5** | Draws + publishing (single-source behind config flag) | **Done** | Atomic publish transaction (`draws`, `prize_tiers`, `prize_entries`, `ingest_events`); idempotent re-ingest; status lifecycle; conflict detection (`needs_review`); verified via psql and CLI. |
 | **F6** | Public read API with OpenAPI/Swagger & ticket check | **Done** | Fastify read API under `/v1`; 6 endpoints; Zod validation; ETag & 304 handling; Cache-Control headers; per-IP rate limiting; Swagger UI at `/docs`; 64 tests passing; verified live with curl. |
 | **F7** | Scheduler (pg-boss jobs, IST windows, single-flight) | **Done** | pg-boss scheduler running in Docker worker; polling windows computed in IST; expected draw created automatically; single-flight deduplication; manual CLI `pnpm poll:manual` tested with live Onmanorama, faked clock, and fixtures; 76 tests passing. |
-| **F8** | keralalotteries.net adapter & winner agencies | Todo | Pending |
+| **F8** | keralalotteries.net adapter & winner agencies | **Done** | Adapter for keralalotteries.net built with live & fixture discovery; parsed winner agencies inserted into `winner_agencies`; exact `ParsedDraw` validated across Karunya KR-762 and Samrudhi SM-82 fixtures; CLI `pnpm ingest:keralalotteries` verified; 86 tests passing. |
 | **F9** | Reconciler (two-source agreement, needs_review diff) | Todo | Pending |
 | **F10** | Official source: PDF parser & manual upload route | Todo | Pending |
 | **F11** | Backfill, alert checks, metrics, deployment hardening | Todo | Pending |
@@ -632,6 +632,78 @@ pnpm test
 
 ### Next Feature
 - **F8: keralalotteries.net adapter & winner agencies**: Implement adapter for keralalotteries.net (second source), capture agent / seller agency details into `winner_agencies`, add fixtures, assert exact ParsedDraw output in tests, and verify ingest via CLI.
+
+---
+
+## Feature 8: keralalotteries.net Adapter & Winner Agencies
+
+### What Was Built
+- **`keralalotteries.net` HTML Fixtures (`packages/sources/src/keralalotteries/fixtures/`)**:
+  - Saved real HTML pages:
+    - `karunya-kr-762.html`: Real historical Saturday draw (25-07-2026) for Karunya KR-762 requested in the task prompt.
+    - `samrudhi-sm-82.html`: Real Sunday draw (22-11-2026) for Samrudhi SM-82, providing a shared two-source cross-check against Onmanorama's SM-82 fixture.
+    - `listing.html`: Real homepage / topic listing of recent draws.
+    - `broken-invalid-draw.html`: Truncated page lacking draw results to assert `ParseError` throwing.
+- **`keralalotteries.net` Parser (`packages/sources/src/keralalotteries/parser.ts`)**:
+  - `parseListing(html: string): DrawRef[]`: Extracts and deduplicates draw reference links matching the URL schema `/YYYY/MM/<scheme>-kerala-lottery-result-<code>-<drawNum>-today-DD-MM-YYYY.html`.
+  - `parseArticle(html: string, sourceUrl?: string): ParsedDraw`:
+    - Robust extraction of scheme code, draw code, and ISO draw date (`YYYY-MM-DD`).
+    - Dedicated `parseKeralalotteriesAmount()` to accurately distinguish ordinal tier numbers (e.g. `4th`, `5th`) from prize amounts (`₹5,000/-`, `₹2,000/-`, `₹1,00,00,000/- [1 Crore]`).
+    - Parses full prize tiers (`1st`, `Consolation`, `2nd`, `3rd`, `4th`–`9th`/`10th`), matching all 12 series tickets and 4-digit last4 entries.
+    - Captures winner agency details (agent name, agency number, district/place) from 1st, 2nd, and 3rd prize blocks into `WinnerAgency[]`.
+- **Winner Agencies Database Integration (`packages/sources/src/publish.ts`)**:
+  - Ingestion pipeline maps parsed `draw.agents` into the `winner_agencies` table (`draw_id`, `tier`, `ticket`, `agency_name`, `agency_code`, `place`, `source`).
+  - Idempotent upsert via `onConflictDoNothing()`.
+- **Source Adapter (`packages/sources/src/keralalotteries/adapter.ts`)**:
+  - `KeralalotteriesNetAdapter` implementing `SourceAdapter` (`id: "keralalotteries_net"`, `name: "Kerala Lotteries Net"`).
+  - Uses `PoliteHttpClient` with custom user-agent, polite rate-limiting, and conditional ETag/304 headers.
+- **Worker Poller Integration (`apps/worker/src/poller.ts` & `apps/worker/src/scheduler.ts`)**:
+  - Integrated `keralalotteriesAdapter` into the multi-source poller discovery logic.
+  - Scheduler dispatches single-flight jobs for both `onmanorama` and `keralalotteries_net` per active window.
+- **CLI Commands**:
+  - `pnpm ingest:keralalotteries --url <url> | --fixture <path>`: Prints parsed draw JSON without DB mutation.
+  - `pnpm ingest --fixture <path> --source keralalotteries_net`: Ingests and stores raw payload, creates observation, validates, and publishes with winner agencies.
+- **Unit Tests (`packages/sources/src/__tests__/keralalotteries.test.ts`)**:
+  - 10 comprehensive tests covering listing discovery, Karunya KR-762 full prize parsing, winner agency extraction, Samrudhi SM-82 cross-source parsing, and `ParseError` on broken fixtures. 86 tests total passing.
+
+### Verification Steps
+```bash
+# 1. Run unit test suite (86 tests across 13 files)
+pnpm test
+
+# 2. Test CLI parser against local fixture
+pnpm ingest:keralalotteries --fixture packages/sources/src/keralalotteries/fixtures/karunya-kr-762.html
+
+# 3. Test CLI parser against live URL
+pnpm ingest:keralalotteries --url https://www.keralalotteries.net/2026/07/karunya-kerala-lottery-result-kr-762-today-25-07-2026.html
+
+# 4. Ingest Karunya KR-762 into the database
+pnpm ingest --fixture packages/sources/src/keralalotteries/fixtures/karunya-kr-762.html --source keralalotteries_net
+
+# 5. Verify winner agencies in PostgreSQL
+docker exec -i gacha_postgres psql -U postgres -d gacha -c "SELECT tier, ticket, agency_name, agency_code, place, source FROM winner_agencies WHERE draw_id IN (SELECT id FROM draws WHERE draw_code = 'KR-762');"
+
+# 6. Verify draw and prize entries via public API
+curl -s http://localhost:3001/v1/draws/KR-762
+
+# 7. Check ticket against KR-762 (e.g. 1st prize winner KB 845108)
+curl -s -X POST http://localhost:3001/v1/draws/KR-762/check -H "Content-Type: application/json" -d '{"ticket":"KB 845108"}'
+```
+
+### Decisions Made & Deviations from Design
+1. **Dedicated Amount Parser for keralalotteries.net**:
+   `keralalotteries.net` formats prize tiers as inline headings (e.g. `4th Prize: ₹5,000/-`). A standard number regex could confuse the ordinal prefix (`4th`) with the prize amount. Built `parseKeralalotteriesAmount()` to specifically isolate currency symbols (`₹`, `Rs.`), bracketed multipliers (`[1 Crore]`, `[25 Lakhs]`), or amounts preceding `/-`.
+2. **Consolation Ticket Whitespace Boundary**:
+   In some articles, consolation tickets appear concatenated without intervening spaces (e.g. `MN 747323MP 747323`). Removed word boundary assertions (`\b`) from the ticket series regex to ensure all series tickets are parsed without omission.
+3. **Agency Extraction Pattern**:
+   Agent names and agency codes frequently reside on lines without trailing punctuation (e.g. `Agent Name: SHINE D TAgency No.: T 3795---`). Added positive lookaheads in regex extraction to cleanly separate agency names from agency codes and strip decorative trailing dashes.
+
+### Known Issues
+- None.
+
+### Next Feature
+- **F9: Reconciler**: Two-source agreement rule, canonical fingerprints, `needs_review` state with diff rendering, admin CLI to inspect and force-publish with audit logging, and removal of the single-source publish flag.
+
 
 
 

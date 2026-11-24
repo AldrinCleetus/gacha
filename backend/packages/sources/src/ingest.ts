@@ -15,7 +15,8 @@ import {
   and,
 } from "@gacha/db";
 import { ParsedDraw, LocalRawStore, RawStore } from "@gacha/shared";
-import { parseArticle } from "./onmanorama/parser.js";
+import { parseArticle as parseOnmanoramaArticle } from "./onmanorama/parser.js";
+import { parseArticle as parseKeralalotteriesArticle } from "./keralalotteries/parser.js";
 import { defaultHttpClient } from "./http.js";
 import { validateParsedDraw, ValidationResult } from "./validation.js";
 import { computeDrawFingerprint } from "./fingerprint.js";
@@ -58,7 +59,11 @@ export interface IngestObservationResult {
 export async function ingestObservation(
   options: IngestObservationOptions
 ): Promise<IngestObservationResult> {
-  const source = options.source || "onmanorama";
+  const source =
+    options.source ||
+    (options.url?.includes("keralalotteries.net") || options.fixturePath?.includes("keralalotteries")
+      ? "keralalotteries_net"
+      : "onmanorama");
   let html = options.html;
   let resolvedUrl = options.url;
 
@@ -88,7 +93,11 @@ export async function ingestObservation(
   let parseError: Error | null = null;
 
   try {
-    parsed = parseArticle(html, resolvedUrl);
+    if (source === "keralalotteries_net") {
+      parsed = parseKeralalotteriesArticle(html, resolvedUrl);
+    } else {
+      parsed = parseOnmanoramaArticle(html, resolvedUrl);
+    }
     if (!resolvedUrl && parsed.sourceUrl) {
       resolvedUrl = parsed.sourceUrl;
     }

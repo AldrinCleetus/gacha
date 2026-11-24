@@ -21,6 +21,8 @@ import { defaultHttpClient } from "./http.js";
 import { validateParsedDraw, ValidationResult } from "./validation.js";
 import { computeDrawFingerprint } from "./fingerprint.js";
 import { publishDraw, isSingleSourcePublishEnabled } from "./publish.js";
+import { reconcileDraw } from "./reconciliation.js";
+import { DrawDiff } from "./diff.js";
 
 export interface IngestObservationOptions {
   source?: "onmanorama" | "keralalotteries_net" | "official";
@@ -39,6 +41,8 @@ export interface IngestObservationResult {
   published?: boolean;
   alreadyPublished?: boolean;
   conflict?: boolean;
+  consensus?: boolean;
+  diff?: DrawDiff;
   source: string;
   sourceUrl?: string;
   rawObjectKey: string;
@@ -121,6 +125,8 @@ export async function ingestObservation(
   let isPublished = false;
   let isAlreadyPublished = false;
   let isConflict = false;
+  let isConsensus = false;
+  let diffResult: DrawDiff | undefined;
   let tierCount = 0;
   let entryCount = 0;
 
@@ -281,7 +287,7 @@ export async function ingestObservation(
           : isSingleSourcePublishEnabled();
 
       if (shouldAutoPublish) {
-        // Publish draw in an atomic transaction
+        // Publish draw in an atomic transaction (legacy single-source or test mode)
         const pubResult = await publishDraw(db, drawId, parsed, {
           source,
           sourceUrl: resolvedUrl,
@@ -293,17 +299,13 @@ export async function ingestObservation(
         isAlreadyPublished = pubResult.alreadyPublished ?? false;
         isConflict = pubResult.conflict ?? false;
       } else {
-        // Single-source publishing disabled: remain in 'observed' state
-        drawStatus = "observed";
-        await db.insert(ingestEvents).values({
-          drawId,
-          kind: "observed",
-          detail: {
-            source,
-            sourceUrl: resolvedUrl,
-            fingerprint,
-          },
-        });
+        // Run reconciler to enforce the two-source agreement rule
+        const recResult = await reconcileDraw(db, drawId);
+        drawStatus = recResult.status;
+        isPublished = recResult.published;
+        isConsensus = recResult.consensus ?? false;
+        isConflict = recResult.conflict ?? false;
+        diffResult = recResult.diff;
       }
     }
   }
@@ -315,6 +317,8 @@ export async function ingestObservation(
     published: isPublished,
     alreadyPublished: isAlreadyPublished,
     conflict: isConflict,
+    consensus: isConsensus,
+    diff: diffResult,
     source: parsed ? parsed.source : source,
     sourceUrl: resolvedUrl,
     rawObjectKey,

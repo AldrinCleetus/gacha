@@ -17,7 +17,7 @@ This document tracks the incremental implementation of the gacha backend accordi
 | **F6** | Public read API with OpenAPI/Swagger & ticket check | **Done** | Fastify read API under `/v1`; 6 endpoints; Zod validation; ETag & 304 handling; Cache-Control headers; per-IP rate limiting; Swagger UI at `/docs`; 64 tests passing; verified live with curl. |
 | **F7** | Scheduler (pg-boss jobs, IST windows, single-flight) | **Done** | pg-boss scheduler running in Docker worker; polling windows computed in IST; expected draw created automatically; single-flight deduplication; manual CLI `pnpm poll:manual` tested with live Onmanorama, faked clock, and fixtures; 76 tests passing. |
 | **F8** | keralalotteries.net adapter & winner agencies | **Done** | Adapter for keralalotteries.net built with live & fixture discovery; parsed winner agencies inserted into `winner_agencies`; exact `ParsedDraw` validated across Karunya KR-762 and Samrudhi SM-82 fixtures; CLI `pnpm ingest:keralalotteries` verified; 86 tests passing. |
-| **F9** | Reconciler (two-source agreement, needs_review diff) | Todo | Pending |
+| **F9** | Reconciler (two-source agreement, needs_review diff) | **Done** | Two-source agreement rule enforced; compareDraws() and diff renderer built; reconciliation engine handles consensus, conflict, and late corrections; admin CLI (review, diff, publish) verified live; single-source publish flag disabled by default; 95 tests passing. |
 | **F10** | Official source: PDF parser & manual upload route | Todo | Pending |
 | **F11** | Backfill, alert checks, metrics, deployment hardening | Todo | Pending |
 
@@ -703,6 +703,91 @@ curl -s -X POST http://localhost:3001/v1/draws/KR-762/check -H "Content-Type: ap
 
 ### Next Feature
 - **F9: Reconciler**: Two-source agreement rule, canonical fingerprints, `needs_review` state with diff rendering, admin CLI to inspect and force-publish with audit logging, and removal of the single-source publish flag.
+
+---
+
+## Feature 9: Reconciler (Two-Source Agreement & Admin CLI)
+
+### What Was Built
+- **Draw Comparison & Diff Engine (`packages/sources/src/diff.ts`)**:
+  - `compareDraws(drawA, drawB)`: Computes granular differences between two parsed draw representations:
+    - **Metadata differences**: `drawDate`, `schemeCode`, `drawCode`.
+    - **Prize tier differences**:
+      - `AMOUNT_MISMATCH`: Identifies when sources report different prize values for the same tier.
+      - `MATCH_TYPE_MISMATCH`: Detects disagreements in match type (e.g. `full` vs `last4` vs `consolation`).
+      - `MISSING_IN_A` / `MISSING_IN_B`: Flags when one source reports a tier not found in the other (e.g., 9th prize).
+      - `ENTRIES_MISMATCH`: Pinpoints differences in winning ticket entries and lists sample tickets unique to each source.
+    - **Winner agency differences**: Reports discrepancies in reported winner agent counts.
+  - `renderDiffText(diff)`: Produces a clean, formatted terminal/console report with ANSI-friendly section headers, side-by-side fingerprint comparisons, and clear discrepancy explanations.
+- **Reconciliation Engine (`packages/sources/src/reconciliation.ts`)**:
+  - `reconcileDraw(db, drawId)`:
+    - Enforces the strict two-source agreement rule from Section 4.2 of the design doc.
+    - Gathers all valid `source_observations` for the draw and groups them by canonical fingerprint (`computeDrawFingerprint`).
+    - **Consensus (>= 2 matching sources)**: If two or more independent sources share the exact same fingerprint, consensus is achieved. Automatically calls `publishDraw()` with the consensus observation, records `published` with `reconciled: true` in `ingest_events`, and transitions draw to `published`.
+    - **Conflict (< 2 matching sources and conflicting fingerprints)**: When sources disagree, the draw is transitioned to `needs_review`. Generates structured diff via `compareDraws()`, saves the diff into `ingest_events` (`kind: 'conflict'`), and updates draw status.
+    - **Single Observation**: Transitions draw to `observed` (awaiting second source confirmation).
+    - **Late Correction Handling**: If an observation arrives for an already-published draw with a differing fingerprint, the engine safely flags the draw as `needs_review` and creates an audit trail entry.
+  - `forcePublishDraw(db, drawIdOrCode, source, reason)`:
+    - Admin override mechanism allowing an operator to force-publish results from a chosen source when sources disagree.
+    - Validates draw identifier (UUID or draw code e.g. `SM-82`).
+    - Overrides status to `published`, records `force_published` in `ingest_events` with admin audit detail (`source`, `reason`, `fingerprint`), and updates prize tiers/entries.
+- **Single-Source Publish Default Removal (`packages/sources/src/publish.ts`)**:
+  - Updated `isSingleSourcePublishEnabled()` to default to `false`. Single-source auto-publishing is now only enabled if `process.env.SINGLE_SOURCE_PUBLISH === 'true'` is explicitly set. Production and normal runs require two independent sources to reach consensus before publishing.
+  - Integrated `reconcileDraw()` into `ingestObservation()` in `packages/sources/src/ingest.ts`.
+- **Admin CLI (`packages/sources/src/cli/admin.ts`)**:
+  - Registered `"admin": "tsx packages/sources/src/cli/admin.ts"` in `backend/package.json`.
+  - Commands:
+    - `pnpm admin review`: Lists draws currently in `needs_review` or `observed` awaiting consensus, detailing available observations and source fingerprints.
+    - `pnpm admin diff --draw <drawCodeOrId>`: Fetches observations for the draw, compares them using `compareDraws()`, and renders a side-by-side terminal diff.
+    - `pnpm admin publish --draw <drawCodeOrId> --source <source> [--reason <reason>]`: Force-publishes the draw using the specified source observation with full audit logging.
+- **Comprehensive Unit Tests (`packages/sources/src/__tests__/reconcile.test.ts`)**:
+  - 9 thorough tests covering:
+    - Identical draws producing 0 diffs.
+    - Amount mismatch detection.
+    - Entry difference identification.
+    - Missing tier detection.
+    - Diff between real-world Onmanorama and keralalotteries.net SM-82 fixtures.
+    - Single source moving draw to `observed` without premature publishing.
+    - Two matching sources achieving consensus and publishing atomically.
+    - Conflicting sources transitioning draw to `needs_review` and logging diffs.
+    - Admin force-publish path with audit logging.
+  - Monorepo test suite now stands at **14 test files, 95 passing tests**.
+
+### Verification Steps
+```bash
+# 1. Run all unit tests across the monorepo (95 tests passing)
+pnpm test
+
+# 2. Check for draws needing review via Admin CLI
+pnpm admin review
+
+# 3. View side-by-side reconciliation diff between Onmanorama and keralalotteries.net for SM-82
+pnpm admin diff --draw SM-82
+
+# 4. Force-publish a draw via Admin CLI (with audit logging)
+pnpm admin publish --draw SM-82 --source keralalotteries_net --reason "keralalotteries.net contains full consolation series tickets"
+
+# 5. Verify PostgreSQL audit trail for reconciliation events
+docker exec -i gacha_postgres psql -U postgres -d gacha -c "SELECT id, draw_id, kind, detail->>'source' as source, detail->>'action' as action, at FROM ingest_events ORDER BY id DESC LIMIT 5;"
+
+# 6. Verify public read API displays the published draw
+curl -s http://localhost:3001/v1/draws/SM-82 | jq .status
+```
+
+### Decisions Made & Deviations from Design
+1. **Consolation Series Ticket Discrepancies**:
+   In breaking news coverage, Onmanorama often publishes the 1st prize without generating all 11 individual series consolation ticket numbers, whereas `keralalotteries.net` explicitly lists all 11 series tickets (`MN747323`..`MZ747323`). This results in differing canonical fingerprints and places draws into `needs_review`. The admin diff CLI clearly surfaces these entry differences for operators to force-publish the more complete source.
+2. **UUID vs Draw Code Parameter Flexibility**:
+   `reconcileDraw` and `forcePublishDraw` automatically detect whether the input string is a UUID or a lottery draw code (e.g. `SM-82`), avoiding PostgreSQL invalid UUID syntax errors when CLI users specify draw codes.
+3. **Safe Transaction Reuse**:
+   `publishDraw()` adapts dynamically to whether it is called standalone (`db.transaction()`) or within an existing transaction context (`tx`), preventing nested transaction exceptions.
+
+### Known Issues
+- None.
+
+### Next Feature
+- **F10: Official source: PDF parser & manual upload route**: Parse official Kerala state lottery PDF results (text layout, tables, ticket numbers, prizes), and implement `POST /admin/ingest/pdf` on the API (protected by `ADMIN_API_KEY`) for manual official result uploads.
+
 
 
 

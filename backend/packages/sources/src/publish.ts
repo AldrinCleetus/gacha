@@ -15,6 +15,8 @@ export interface PublishOptions {
   source: string;
   sourceUrl?: string;
   singleSource?: boolean;
+  agreement?: boolean;
+  force?: boolean;
 }
 
 export interface PublishResult {
@@ -29,11 +31,12 @@ export interface PublishResult {
 }
 
 /**
- * Checks if single-source publishing is enabled via environment variable.
- * Defaults to true for local development and initial stages.
+ * In F9+, single-source publishing is disabled by default.
+ * Publishing requires two-source agreement or manual admin override,
+ * unless explicitly enabled by setting SINGLE_SOURCE_PUBLISH=true.
  */
 export function isSingleSourcePublishEnabled(): boolean {
-  return process.env.SINGLE_SOURCE_PUBLISH !== "false";
+  return process.env.SINGLE_SOURCE_PUBLISH === "true";
 }
 
 /**
@@ -50,8 +53,12 @@ export async function publishDraw(
   options: PublishOptions
 ): Promise<PublishResult> {
   const fingerprint = computeDrawFingerprint(parsed);
+  const runTx =
+    typeof db.transaction === "function"
+      ? (cb: (tx: DbClient) => Promise<PublishResult>) => db.transaction(cb as never) as Promise<PublishResult>
+      : (cb: (tx: DbClient) => Promise<PublishResult>) => cb(db);
 
-  return await db.transaction(async (tx) => {
+  return await runTx(async (tx) => {
     // 1. Lock and fetch current draw record
     const [existingDraw] = await tx
       .select()
@@ -67,7 +74,7 @@ export async function publishDraw(
     const entryCount = parsed.tiers.reduce((acc, t) => acc + t.entries.length, 0);
 
     // 2. Check if already published
-    if (existingDraw.status === "published") {
+    if (existingDraw.status === "published" && !options.force) {
       if (existingDraw.fingerprint === fingerprint) {
         // Idempotent: already published with identical data
         return {
@@ -108,6 +115,13 @@ export async function publishDraw(
           entryCount,
         };
       }
+    }
+
+    // If force publishing, clear existing tiers/entries first
+    if (options.force) {
+      await tx.delete(prizeEntries).where(eq(prizeEntries.drawId, drawId));
+      await tx.delete(prizeTiers).where(eq(prizeTiers.drawId, drawId));
+      await tx.delete(winnerAgencies).where(eq(winnerAgencies.drawId, drawId));
     }
 
     // 3. Prepare prize tiers and prize entries

@@ -2,6 +2,8 @@ export * from "./types.js";
 export * from "./http.js";
 export * from "./validation.js";
 export * from "./fingerprint.js";
+export * from "./diff.js";
+export * from "./reconciliation.js";
 export * from "./publish.js";
 export * from "./ingest.js";
 export * from "./onmanorama/parser.js";

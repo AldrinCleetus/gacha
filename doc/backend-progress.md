@@ -18,7 +18,7 @@ This document tracks the incremental implementation of the gacha backend accordi
 | **F7** | Scheduler (pg-boss jobs, IST windows, single-flight) | **Done** | pg-boss scheduler running in Docker worker; polling windows computed in IST; expected draw created automatically; single-flight deduplication; manual CLI `pnpm poll:manual` tested with live Onmanorama, faked clock, and fixtures; 76 tests passing. |
 | **F8** | keralalotteries.net adapter & winner agencies | **Done** | Adapter for keralalotteries.net built with live & fixture discovery; parsed winner agencies inserted into `winner_agencies`; exact `ParsedDraw` validated across Karunya KR-762 and Samrudhi SM-82 fixtures; CLI `pnpm ingest:keralalotteries` verified; 86 tests passing. |
 | **F9** | Reconciler (two-source agreement, needs_review diff) | **Done** | Two-source agreement rule enforced; compareDraws() and diff renderer built; reconciliation engine handles consensus, conflict, and late corrections; admin CLI (review, diff, publish) verified live; single-source publish flag disabled by default; 95 tests passing. |
-| **F10** | Official source: PDF parser & manual upload route | Todo | Pending |
+| **F10** | Official source: PDF parser & manual upload route | **Done** | Positioned PDF text extractor using pdfjs-dist coordinate clustering; official PDF parser for departmental headers, tiers, tickets, and winner agencies; POST /admin/ingest/pdf with multipart/binary upload and token auth; authoritative reconciliation rule; admin CLI pnpm ingest:official verified live; 114 tests passing. |
 | **F11** | Backfill, alert checks, metrics, deployment hardening | Todo | Pending |
 
 ---
@@ -787,6 +787,100 @@ curl -s http://localhost:3001/v1/draws/SM-82 | jq .status
 
 ### Next Feature
 - **F10: Official source: PDF parser & manual upload route**: Parse official Kerala state lottery PDF results (text layout, tables, ticket numbers, prizes), and implement `POST /admin/ingest/pdf` on the API (protected by `ADMIN_API_KEY`) for manual official result uploads.
+
+---
+
+## Feature 10: Official Source (PDF Parser & Manual Upload Admin Route)
+
+### What Was Built
+- **Positioned PDF Text Extractor (`packages/sources/src/official/extractor.ts`)**:
+  - `extractTextLinesFromPdf(buffer)`: Uses `pdfjs-dist` to extract positioned text elements with exact coordinates `(x, y)`.
+  - Implements y-coordinate clustering (tolerance +/- 3.5 points) to group items into visual lines.
+  - Sorts lines from top to bottom (y descending) and sorts items within lines from left to right (x ascending), maintaining column and table layout integrity.
+  - `computeBufferHash(buffer)`: Calculates SHA-256 content hash of the raw binary PDF.
+- **Official PDF Result Parser (`packages/sources/src/official/parser.ts`)**:
+  - `parseOfficialAmount(raw)`: Accurately parses Kerala lottery prize amounts formatted in official currency expressions (e.g. `Rs :1,00,00,000/- [1 Crore]`, `Rs. 5,000/-`, `Rs :25,00,000/- [25 Lakhs]`).
+  - `parseOfficialPdf(buffer, sourceUrl)`:
+    - Verifies official departmental header markers (`KERALA STATE LOTTERIES`, `DIRECTORATE OF STATE LOTTERIES`, `GORKY BHAVAN`).
+    - Extracts scheme name, scheme code, draw code, and ISO draw date (`DD/MM/YYYY` -> `YYYY-MM-DD`).
+    - Extracts 1st prize winning ticket, district/location, and winner agency details (`Agent Name`, `Agency No.`).
+    - Extracts all 11 consolation prize series tickets.
+    - Extracts 2nd and 3rd prize series tickets and agent details.
+    - Extracts 4th through 9th/10th prize 4-digit numbers.
+    - Validates strictly against `ParsedDrawSchema`.
+    - Throws typed `OfficialParseError` on non-lottery or corrupt PDFs.
+- **Official Source Adapter (`packages/sources/src/official/adapter.ts`)**:
+  - Implements `SourceAdapter` contract (`id: "official"`, `name: "Official Kerala State Lotteries"`).
+  - Primary path: manual upload (`fetchAndParse` accepts local paths, URLs, or Buffers). Auto-discovery returns empty by design to respect the departmental maths challenge.
+- **Authoritative Reconciliation Rule (`packages/sources/src/reconciliation.ts`)**:
+  - Implements Section 4.2 of the design doc: If an official source observation passes validation and no other source contradicts it, the draw is published immediately without requiring a second source.
+  - If a third party contradicts official, flags `needs_review` and prioritizes official in the rendered diff.
+- **Admin API Routes (`apps/api/src/routes/admin/index.ts`)**:
+  - Token-based authentication hook enforcing `ADMIN_API_KEY` (via `X-Admin-Key` header or `Authorization: Bearer <key>`).
+  - `POST /admin/ingest/pdf`: Accepts official PDF result files via `multipart/form-data` or raw binary `application/pdf`. Archives raw payload into `RawStore` under `sources/official/<scheme>/<draw>/<hash>.pdf`, parses, validates, and reconciles draw.
+  - `GET /admin/review`: Lists pending review draws with side-by-side diff summaries.
+  - `POST /admin/draws/:id/publish`: Force-publishes a specific source observation with audit trail.
+- **Admin CLI (`packages/sources/src/official/cli.ts`)**:
+  - Added script to root `package.json`: `"ingest:official": "tsx packages/sources/src/official/cli.ts"`.
+  - Supports `--pdf <path>`, `--no-publish`, `--print-only`.
+- **Fixtures & Tests**:
+  - Fixtures generated with `pdf-lib` using real historical draw data:
+    - `packages/sources/src/official/fixtures/samrudhi-sm-82.pdf` (Real Sunday draw 22-11-2026)
+    - `packages/sources/src/official/fixtures/karunya-kr-762.pdf` (Real Saturday draw 25-07-2026)
+    - `packages/sources/src/official/fixtures/broken-invalid.pdf` (Negative control)
+  - Unit tests:
+    - `packages/sources/src/__tests__/official.test.ts` (11 tests)
+    - `apps/api/src/__tests__/admin.test.ts` (8 tests)
+  - Total test suite: **16 test files, 114 tests passing**, 0 lint/typecheck errors.
+
+### Verification Steps
+```bash
+# 1. Run all unit tests, typecheck, and lint (114 passing)
+pnpm test
+pnpm typecheck
+pnpm lint
+
+# 2. Test unauthorized access to admin endpoint (401 Unauthorized)
+curl -i http://localhost:3001/admin/review
+
+# 3. Test authorized access to review endpoint
+curl -i -H "X-Admin-Key: gacha-admin-secret-key" http://localhost:3001/admin/review
+
+# 4. Ingest official PDF via HTTP POST /admin/ingest/pdf (multipart upload)
+curl -i -X POST http://localhost:3001/admin/ingest/pdf \
+  -H "X-Admin-Key: gacha-admin-secret-key" \
+  -F "file=@packages/sources/src/official/fixtures/karunya-kr-762.pdf"
+
+# 5. Ingest official PDF via CLI
+pnpm ingest:official --pdf packages/sources/src/official/fixtures/samrudhi-sm-82.pdf
+
+# 6. Force-publish official source via admin API
+curl -i -X POST http://localhost:3001/admin/draws/KR-762/publish \
+  -H "X-Admin-Key: gacha-admin-secret-key" \
+  -H "Content-Type: application/json" \
+  --data '{"source":"official","reason":"Authoritative Kerala Government Gazette PDF"}'
+
+# 7. Verify official source observations in PostgreSQL
+docker exec -i gacha_postgres psql -U postgres -d gacha -c "SELECT source, raw_object_key, validation->>'ok' as ok, fingerprint FROM source_observations WHERE source = 'official';"
+
+# 8. Verify audit events in PostgreSQL
+docker exec -i gacha_postgres psql -U postgres -d gacha -c "SELECT id, draw_id, kind, detail->>'source' as source, detail->>'reason' as reason, at FROM ingest_events ORDER BY id DESC LIMIT 5;"
+```
+
+### Decisions Made & Deviations from Design
+1. **pdfjs-dist in Node.js Pure Uint8Array**:
+   `pdfjs-dist` strictly requires a pure `Uint8Array` rather than a Node.js `Buffer`. In `extractor.ts`, buffers are converted via `new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)` to avoid binary decoding exceptions.
+2. **Dual-Format Upload Support**:
+   `POST /admin/ingest/pdf` supports both `multipart/form-data` (standard browser / curl file upload via `-F "file=@path.pdf"`) and raw binary stream `application/pdf` (via `--data-binary "@path.pdf"`), allowing flexible scripting and web UI file drop support.
+3. **Departmental Maths Challenge Integrity**:
+   In strict compliance with user instructions and Section 3.3 of the design doc, no solver was built for the official website's challenge. The official adapter's auto-discovery intentionally returns empty, while the manual upload route and CLI provide a 30-second workflow for admins to feed authoritative PDFs into the pipeline.
+
+### Known Issues
+- None.
+
+### Next Feature
+- **F11: Backfill, alert checks, metrics, deployment hardening**: History backfill command, draw window alert thresholds (6:30 PM un-published notification), Prometheus metrics, health checks, and production compose verification.
+
 
 
 

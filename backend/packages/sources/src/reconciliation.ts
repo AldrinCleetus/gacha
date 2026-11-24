@@ -1,10 +1,11 @@
-import { eq, and } from "drizzle-orm";
 import {
   DbClient,
   draws,
   sourceObservations,
   ingestEvents,
   DrawStatus,
+  eq,
+  and,
 } from "@gacha/db";
 import { ParsedDraw } from "@gacha/shared";
 import { publishDraw } from "./publish.js";
@@ -176,12 +177,60 @@ export async function reconcileDraw(
       }
     }
 
+    // Official source rule (Design Doc Section 4.2):
+    // "the official parse (manual or fetched) passes validation and no other source contradicts it."
+    const officialObs = validObs.find((o) => o.source === "official");
+    if (officialObs && officialObs.fingerprint && officialObs.parsed) {
+      const contradictorySources = Array.from(fingerprintToSources.entries())
+        .filter(([fp]) => fp !== officialObs.fingerprint)
+        .flatMap(([, items]) => items.map((i) => i.source));
+
+      if (contradictorySources.length === 0) {
+        // Authoritative official source passes validation with zero contradictions!
+        const parsedToPublish = officialObs.parsed as ParsedDraw;
+        await publishDraw(tx as DbClient, drawId, parsedToPublish, {
+          source: "official",
+          agreement: false,
+        });
+
+        await tx.insert(ingestEvents).values({
+          drawId,
+          kind: "official_published",
+          detail: {
+            source: "official",
+            fingerprint: officialObs.fingerprint,
+            tierCount: parsedToPublish.tiers.length,
+            message: "Published via authoritative official source without contradiction",
+          },
+        });
+
+        return {
+          drawId,
+          drawCode: draw.drawCode,
+          status: "published",
+          published: true,
+          sources: ["official"],
+          fingerprint: officialObs.fingerprint,
+        };
+      }
+    }
+
     // Check if we have multiple valid observations with differing fingerprints
     if (fingerprintToSources.size > 1) {
       // DISAGREEMENT!
       const allObs = Array.from(fingerprintToSources.values()).flatMap((v) => v);
-      const obsA = allObs[0];
-      const obsB = allObs[1];
+      let obsA = allObs[0];
+      let obsB = allObs[1];
+
+      // Prefer comparing official against contradictory source if official is available
+      const officialItem = allObs.find((o) => o.source === "official");
+      if (officialItem) {
+        const otherItem = allObs.find((o) => o.source !== "official");
+        if (otherItem) {
+          obsA = officialItem;
+          obsB = otherItem;
+        }
+      }
 
       const diff = compareDraws(obsA.parsed, obsB.parsed);
       const diffText = renderDiffText(diff);

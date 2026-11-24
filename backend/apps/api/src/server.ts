@@ -2,6 +2,7 @@ import Fastify, { FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import etag from "@fastify/etag";
+import multipart from "@fastify/multipart";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
 import {
@@ -11,6 +12,7 @@ import {
 } from "fastify-type-provider-zod";
 import { checkDbHealth } from "@gacha/db";
 import { v1Routes } from "./routes/v1/index.js";
+import { adminRoutes } from "./routes/admin/index.js";
 
 export function buildServer(): FastifyInstance {
   const isDev = process.env.NODE_ENV !== "production";
@@ -46,6 +48,22 @@ export function buildServer(): FastifyInstance {
 
   // Automatic ETag and 304 handling
   app.register(etag);
+
+  // Multipart file upload support for admin PDF uploads
+  app.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10 MB max PDF size
+    },
+  });
+
+  // Content type parser for raw PDF binary uploads
+  app.addContentTypeParser(
+    ["application/pdf", "application/octet-stream"],
+    { parseAs: "buffer" },
+    (_req, body, done) => {
+      done(null, body);
+    }
+  );
 
   // OpenAPI / Swagger documentation at /docs
   app.register(fastifySwagger, {
@@ -105,6 +123,9 @@ export function buildServer(): FastifyInstance {
 
   // Public read API under /v1
   app.register(v1Routes, { prefix: "/v1" });
+
+  // Admin routes under /admin (protected by token auth)
+  app.register(adminRoutes, { prefix: "/admin" });
 
   return app;
 }

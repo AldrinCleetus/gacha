@@ -30,7 +30,7 @@ export type DrawRef = z.infer<typeof DrawRefSchema>;
 
 export const ParsedDrawSchema = z.object({
   source: z.enum(["onmanorama", "keralalotteries_net", "official"]),
-  sourceUrl: z.string().url().optional(),
+  sourceUrl: z.string().optional(),
   fetchedAt: z.string().datetime(), // ISO 8601 string
   schemeName: z.string().min(1),
   schemeCode: z.string().min(1), // e.g. 'BT', 'SS', 'DL', 'KN', 'SK', 'KR', 'SM'

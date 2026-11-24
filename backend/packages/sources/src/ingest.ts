@@ -17,6 +17,7 @@ import {
 import { ParsedDraw, LocalRawStore, RawStore } from "@gacha/shared";
 import { parseArticle as parseOnmanoramaArticle } from "./onmanorama/parser.js";
 import { parseArticle as parseKeralalotteriesArticle } from "./keralalotteries/parser.js";
+import { parseOfficialPdf } from "./official/parser.js";
 import { defaultHttpClient } from "./http.js";
 import { validateParsedDraw, ValidationResult } from "./validation.js";
 import { computeDrawFingerprint } from "./fingerprint.js";
@@ -29,6 +30,7 @@ export interface IngestObservationOptions {
   url?: string;
   fixturePath?: string;
   html?: string;
+  pdfBuffer?: Buffer | Uint8Array;
   rawStore?: RawStore;
   db?: DbClient;
   autoPublish?: boolean; // Defaults to isSingleSourcePublishEnabled()
@@ -63,16 +65,40 @@ export interface IngestObservationResult {
 export async function ingestObservation(
   options: IngestObservationOptions
 ): Promise<IngestObservationResult> {
+  const isPdf =
+    options.source === "official" ||
+    !!options.pdfBuffer ||
+    (options.fixturePath ? options.fixturePath.toLowerCase().endsWith(".pdf") : false);
+
   const source =
     options.source ||
-    (options.url?.includes("keralalotteries.net") || options.fixturePath?.includes("keralalotteries")
+    (isPdf
+      ? "official"
+      : options.url?.includes("keralalotteries.net") || options.fixturePath?.includes("keralalotteries")
       ? "keralalotteries_net"
       : "onmanorama");
+
+  let payloadBuffer: Buffer | undefined;
   let html = options.html;
   let resolvedUrl = options.url;
 
   // 1. Fetch or read payload
-  if (!html) {
+  if (isPdf) {
+    if (options.pdfBuffer) {
+      payloadBuffer = Buffer.isBuffer(options.pdfBuffer)
+        ? options.pdfBuffer
+        : Buffer.from(options.pdfBuffer);
+    } else if (options.fixturePath) {
+      const resolved = path.resolve(process.cwd(), options.fixturePath);
+      payloadBuffer = fs.readFileSync(resolved);
+    } else if (options.url) {
+      const response = await defaultHttpClient.get(options.url);
+      payloadBuffer = Buffer.from(response.body, "utf-8");
+      resolvedUrl = response.url;
+    } else {
+      throw new Error("Either 'pdfBuffer', 'fixturePath', or 'url' must be provided for PDF ingestObservation");
+    }
+  } else if (!html) {
     if (options.fixturePath) {
       const resolved = path.resolve(process.cwd(), options.fixturePath);
       html = fs.readFileSync(resolved, "utf8");
@@ -86,7 +112,10 @@ export async function ingestObservation(
   }
 
   // 2. Compute raw payload content hash
-  const contentHash = crypto.createHash("sha256").update(html).digest("hex");
+  const contentHash = crypto
+    .createHash("sha256")
+    .update(payloadBuffer || html || "")
+    .digest("hex");
 
   // 3. Initialize RawStore
   const rawStoragePath = process.env.RAW_STORAGE_PATH || path.resolve(process.cwd(), "data/raw");
@@ -97,10 +126,12 @@ export async function ingestObservation(
   let parseError: Error | null = null;
 
   try {
-    if (source === "keralalotteries_net") {
-      parsed = parseKeralalotteriesArticle(html, resolvedUrl);
+    if (source === "official" || isPdf) {
+      parsed = await parseOfficialPdf(payloadBuffer!, resolvedUrl || "manual-upload");
+    } else if (source === "keralalotteries_net") {
+      parsed = parseKeralalotteriesArticle(html!, resolvedUrl);
     } else {
-      parsed = parseOnmanoramaArticle(html, resolvedUrl);
+      parsed = parseOnmanoramaArticle(html!, resolvedUrl);
     }
     if (!resolvedUrl && parsed.sourceUrl) {
       resolvedUrl = parsed.sourceUrl;
@@ -110,11 +141,12 @@ export async function ingestObservation(
   }
 
   // 5. Store raw payload into RawStore
+  const fileExt = isPdf ? "pdf" : "html";
   const rawObjectKey = parsed
-    ? `sources/${parsed.source}/${parsed.schemeCode}/${parsed.drawCode}/${contentHash}.html`
-    : `sources/${source}/unknown/${contentHash}.html`;
+    ? `sources/${parsed.source}/${parsed.schemeCode}/${parsed.drawCode}/${contentHash}.${fileExt}`
+    : `sources/${source}/unknown/${contentHash}.${fileExt}`;
 
-  await rawStore.put(rawObjectKey, html);
+  await rawStore.put(rawObjectKey, payloadBuffer || html || "");
 
   // 6. Database operations & validation
   const db = options.db || getDb();

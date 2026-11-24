@@ -16,3 +16,17 @@ export {
   parseKeralalotteriesAmount,
   ParseError as KeralalotteriesParseError,
 } from "./keralalotteries/index.js";
+export {
+  OfficialSourceAdapter,
+  officialAdapter,
+} from "./official/adapter.js";
+export {
+  parseOfficialPdf,
+  parseOfficialAmount,
+  OfficialParseError,
+} from "./official/parser.js";
+export {
+  extractTextLinesFromPdf,
+  computeBufferHash,
+} from "./official/extractor.js";
+

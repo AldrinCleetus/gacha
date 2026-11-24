@@ -11,6 +11,7 @@
     "admin": "tsx packages/sources/src/cli/admin.ts",
     "ingest:onmanorama": "tsx packages/sources/src/onmanorama/cli.ts",
     "ingest:keralalotteries": "tsx packages/sources/src/keralalotteries/cli.ts",
+    "ingest:official": "tsx packages/sources/src/official/cli.ts",
     "poll:manual": "tsx apps/worker/src/cli/poll.ts",
     "lint": "eslint .",
     "typecheck": "tsc -b",
@@ -31,5 +32,8 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.5"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.38.4"
   }
 }

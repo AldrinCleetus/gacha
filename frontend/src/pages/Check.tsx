@@ -61,6 +61,7 @@ export function Check({ initialChecking = false }: CheckProps) {
   const { forcedOutcome } = useDemoStore();
 
   const [draws, setDraws] = useState<Draw[]>([]);
+  const [fullActiveDraw, setFullActiveDraw] = useState<Draw | null>(null);
   const [recentTickets, setRecentTickets] = useState<SavedTicket[]>([]);
 
   // Checking & Reveal state machine
@@ -95,7 +96,7 @@ export function Check({ initialChecking = false }: CheckProps) {
   useEffect(() => {
     lotteryApi.getDraws().then((d) => {
       setDraws(d);
-      if (!selectedDrawId && d.length > 0) {
+      if (d.length > 0 && !selectedDrawId) {
         const latestPublished = d.find((draw) => draw.isPublished) || d[0];
         setSelectedDrawId(latestPublished.id);
       }
@@ -106,11 +107,30 @@ export function Check({ initialChecking = false }: CheckProps) {
     });
   }, [selectedDrawId, setSelectedDrawId]);
 
+  // Fetch full draw details (including prize tiers) whenever selectedDrawId changes
+  useEffect(() => {
+    if (!selectedDrawId) return;
+    let cancelled = false;
+    lotteryApi.getDrawById(selectedDrawId).then((full) => {
+      if (!cancelled && full) {
+        setFullActiveDraw(full);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDrawId]);
+
   // Auto-switch draw when first letter changes if matching draw exists
   useEffect(() => {
     if (firstLetter && draws.length > 0 && !isChecking) {
+      const upper = firstLetter.toUpperCase();
       const match = draws.find(
-        (d) => d.isPublished && d.schemeCode.toUpperCase() === firstLetter.toUpperCase()
+        (d) =>
+          d.isPublished &&
+          (d.schemeCode.toUpperCase() === upper ||
+            d.schemeCode.toUpperCase().startsWith(upper) ||
+            (upper === "B" && d.schemeCode.toUpperCase() === "BT"))
       );
       if (match) {
         setSelectedDrawId(match.id);
@@ -118,10 +138,15 @@ export function Check({ initialChecking = false }: CheckProps) {
     }
   }, [firstLetter, draws, setSelectedDrawId, isChecking]);
 
-  const activeDraw =
+  const baseDraw =
     draws.find((d) => d.id === selectedDrawId) ||
     draws.find((d) => d.schemeCode === (characters[0] || "W")) ||
     draws[0];
+
+  const activeDraw =
+    fullActiveDraw && baseDraw && fullActiveDraw.id === baseDraw.id
+      ? fullActiveDraw
+      : baseDraw;
 
   // Handle browser back button (popstate)
   useEffect(() => {
@@ -336,27 +361,68 @@ export function Check({ initialChecking = false }: CheckProps) {
   // If initialChecking is passed (e.g. direct /check/reveal or replay)
   useEffect(() => {
     if (isDirectRevealRoute && activeDraw && !evalResult) {
-      const res = checkTicket(parsed.isValid ? parsed : "WA 584920", activeDraw, forcedOutcome);
-      setLastResult(res, isReplay);
-      startCheckingSequence(res);
+      let cancelled = false;
+      const runDirect = async () => {
+        let target = activeDraw;
+        if (!target.prizes) {
+          const full = await lotteryApi.getDrawById(target.id);
+          if (full && !cancelled) target = full;
+        }
+        let res: MatchResult;
+        if (forcedOutcome) {
+          res = checkTicket(parsed.isValid ? parsed : "WA 584920", target, forcedOutcome);
+        } else if (lotteryApi.checkTicket) {
+          res = await lotteryApi.checkTicket(
+            parsed.isValid ? parsed.fullTicketString : "WA 584920",
+            target.id
+          );
+        } else {
+          res = checkTicket(parsed.isValid ? parsed : "WA 584920", target);
+        }
+        if (!cancelled) {
+          setLastResult(res, isReplay);
+          startCheckingSequence(res);
+        }
+      };
+      runDirect();
+      return () => {
+        cancelled = true;
+      };
     }
   }, [isDirectRevealRoute, activeDraw, evalResult, parsed, forcedOutcome, isReplay, setLastResult, startCheckingSequence]);
 
-  const handleCheck = () => {
+  const handleCheck = async () => {
     if (!isComplete || !activeDraw || isChecking) return;
 
-    const result = checkTicket(parsed, activeDraw, forcedOutcome);
+    let targetDraw = activeDraw;
+    if (!targetDraw.prizes) {
+      const fetched = await lotteryApi.getDrawById(activeDraw.id);
+      if (fetched) {
+        targetDraw = fetched;
+        setFullActiveDraw(fetched);
+      }
+    }
+
+    let result: MatchResult;
+    if (forcedOutcome) {
+      result = checkTicket(parsed, targetDraw, forcedOutcome);
+    } else if (lotteryApi.checkTicket) {
+      result = await lotteryApi.checkTicket(parsed.fullTicketString, targetDraw.id);
+    } else {
+      result = checkTicket(parsed, targetDraw);
+    }
+
     setLastResult(result, false);
 
     // Save ticket uniquely to mock history
     lotteryApi.saveTicket({
       id: `tkt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       ticketString: parsed.fullTicketString,
-      schemeCode: parsed.schemeCode,
+      schemeCode: targetDraw.schemeCode || parsed.schemeCode,
       series: parsed.series,
       digits: parsed.digits,
-      drawId: activeDraw.id,
-      drawDate: activeDraw.drawDate,
+      drawId: targetDraw.id,
+      drawDate: targetDraw.drawDate,
       checkedAt: new Date().toISOString(),
       cost: 40,
       wonAmount: result.amount,
@@ -442,7 +508,8 @@ export function Check({ initialChecking = false }: CheckProps) {
         day: "numeric",
         month: "short",
       });
-      return `${formattedDate} draw`;
+      const scheme = getScheme(draw.schemeCode);
+      return `${scheme.name} ${draw.id} (${formattedDate})`;
     } catch {
       return `${draw.id} draw`;
     }
@@ -625,7 +692,7 @@ export function Check({ initialChecking = false }: CheckProps) {
                 >
                   <TicketGraphic
                     ticketString={parsed.fullTicketString || "WA 584920"}
-                    schemeCode={parsed.schemeCode || "W"}
+                    schemeCode={activeDraw?.schemeCode || parsed.schemeCode || "W"}
                     drawId={activeDraw?.id || "W-790"}
                     drawDate={activeDraw?.drawDate || "23 NOV 2026"}
                     state={
@@ -640,7 +707,7 @@ export function Check({ initialChecking = false }: CheckProps) {
                     matchedIndices={lockedIndices}
                     activeJudgeIndex={activeJudgeIndex}
                     tierLabel={revealPhase === "VERDICT" && evalResult ? evalResult.tier : undefined}
-                    seriesLabel={`${getScheme(parsed.schemeCode || "W").name} series ${parsed.series || "W"}`}
+                    seriesLabel={`${getScheme(activeDraw?.schemeCode || parsed.schemeCode || "W").name} series ${parsed.series || "W"}`}
                     size="responsive"
                   />
                 </motion.div>

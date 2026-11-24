@@ -23,6 +23,8 @@ export const lotteryApi: LotteryApi = {
   getDraws: () => getLotteryApi().getDraws(),
   getLatestDraw: (schemeCode?: string) => getLotteryApi().getLatestDraw(schemeCode),
   getDrawById: (id: string) => getLotteryApi().getDrawById(id),
+  checkTicket: (ticket: string, drawId: string) =>
+    getLotteryApi().checkTicket ? getLotteryApi().checkTicket!(ticket, drawId) : Promise.reject("checkTicket not supported"),
   saveTicket: (ticket) => getLotteryApi().saveTicket(ticket),
   getHistory: () => getLotteryApi().getHistory(),
   getStats: () => getLotteryApi().getStats(),

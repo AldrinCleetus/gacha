@@ -10,9 +10,12 @@ export function getScheme(codeOrChar?: string): Scheme {
     return SCHEMES["W"] || Object.values(SCHEMES)[0];
   }
   const upper = codeOrChar.toUpperCase();
+  // 1. Exact match (e.g. "BT", "SS", "AK", "KN", "NR", "KR", "SM")
+  if (SCHEMES[upper]) return SCHEMES[upper];
+  // 2. First character match (e.g. "B" -> BT, "W" -> W, "N" -> NR)
   const firstChar = upper.charAt(0);
   if (SCHEMES[firstChar]) return SCHEMES[firstChar];
-  if (SCHEMES[upper]) return SCHEMES[upper];
+  // 3. Fallback
   return SCHEMES["W"] || Object.values(SCHEMES)[0];
 }
 

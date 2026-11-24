@@ -126,16 +126,34 @@ export function checkTicket(
     };
   }
 
-  // 3. 2nd PRIZE (if defined and 6 digits match)
-  if (prizes.secondPrize && ticket.digits === prizes.secondPrize.number) {
-    return {
-      kind: "mid",
-      tier: "2nd Prize",
-      amount: prizes.secondPrize.amount,
-      formattedAmount: formatINR(prizes.secondPrize.amount),
-      matchedIndices: [2, 3, 4, 5, 6, 7],
-      summary: "2nd prize winner",
-    };
+  // 3. 2nd PRIZE (if defined and digits match)
+  if (prizes.secondPrize) {
+    const targetNum =
+      prizes.secondPrize.number.length >= 8
+        ? prizes.secondPrize.number.slice(2)
+        : prizes.secondPrize.number;
+    const targetSeries =
+      (prizes.secondPrize as any).series ||
+      (prizes.secondPrize.number.length >= 8
+        ? prizes.secondPrize.number.slice(0, 2)
+        : undefined);
+
+    const numMatch = ticket.digits === targetNum;
+    const seriesMatch =
+      !targetSeries || ticket.series.toUpperCase() === targetSeries.toUpperCase();
+
+    if (numMatch && seriesMatch) {
+      return {
+        kind: "mid",
+        tier: "2nd Prize",
+        amount: prizes.secondPrize.amount,
+        formattedAmount: formatINR(prizes.secondPrize.amount),
+        matchedIndices: targetSeries
+          ? [0, 1, 2, 3, 4, 5, 6, 7]
+          : [2, 3, 4, 5, 6, 7],
+        summary: "2nd prize winner",
+      };
+    }
   }
 
   // 4. LAST 4 DIGITS MATCH

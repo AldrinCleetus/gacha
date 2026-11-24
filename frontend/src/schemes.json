@@ -98,6 +98,20 @@
         "text": "#1B638A"
       }
     },
+    "N": {
+      "code": "NR",
+      "name": "Nirmal",
+      "drawPrefix": "NR",
+      "price": 40,
+      "weekday": "Friday",
+      "firstPrize": "₹70,00,000",
+      "theme": {
+        "primary": "#0A7063",
+        "bg": "#E4F4F1",
+        "border": "#CEECE6",
+        "text": "#0A7063"
+      }
+    },
     "NR": {
       "code": "NR",
       "name": "Nirmal",
@@ -140,12 +154,26 @@
         "text": "#7A1B8A"
       }
     },
+    "B": {
+      "code": "BT",
+      "name": "Bhagyathara",
+      "drawPrefix": "BT",
+      "price": 50,
+      "weekday": "Monday",
+      "firstPrize": "₹1,00,00,000",
+      "theme": {
+        "primary": "#7A1B8A",
+        "bg": "#F4E1F5",
+        "border": "#ECCEEC",
+        "text": "#7A1B8A"
+      }
+    },
     "BT": {
       "code": "BT",
       "name": "Bhagyathara",
       "drawPrefix": "BT",
       "price": 50,
-      "weekday": "Sunday",
+      "weekday": "Monday",
       "firstPrize": "₹1,00,00,000",
       "theme": {
         "primary": "#7A1B8A",

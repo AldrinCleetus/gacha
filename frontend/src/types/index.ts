@@ -85,6 +85,7 @@ export const DrawSchema = z.object({
       }),
       secondPrize: z
         .object({
+          series: z.string().optional(),
           number: z.string(),
           amount: z.number(),
         })
@@ -161,6 +162,7 @@ export interface LotteryApi {
   getLatestDraw(schemeCode?: string): Promise<Draw>;
   getDraws(): Promise<Draw[]>;
   getDrawById(id: string): Promise<Draw | null>;
+  checkTicket?(ticket: string, drawId: string): Promise<MatchResult>;
   saveTicket(ticket: SavedTicket): Promise<boolean>;
   getHistory(): Promise<SavedTicket[]>;
   getStats(): Promise<UserStats>;

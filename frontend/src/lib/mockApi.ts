@@ -1,5 +1,6 @@
-import { Draw, LotteryApi, SavedTicket, UserSession, UserStats } from "@/types";
+import { Draw, LotteryApi, MatchResult, SavedTicket, UserSession, UserStats } from "@/types";
 import { generateSeedTickets, SEED_DRAWS } from "./mockData";
+import { checkTicket } from "./checkTicket";
 
 const STORAGE_KEY_HISTORY = "gacha_saved_tickets_v2";
 const STORAGE_KEY_SESSION = "gacha_user_session_v2";
@@ -66,6 +67,21 @@ class MockLotteryApiService implements LotteryApi {
   async getDrawById(id: string): Promise<Draw | null> {
     const draw = SEED_DRAWS.find((d) => d.id === id);
     return draw || null;
+  }
+
+  async checkTicket(ticket: string, drawId: string): Promise<MatchResult> {
+    const draw = await this.getDrawById(drawId);
+    if (!draw) {
+      return {
+        kind: "none",
+        tier: "Draw Not Found",
+        amount: 0,
+        formattedAmount: "₹0",
+        matchedIndices: [],
+        summary: "Unable to find draw results",
+      };
+    }
+    return checkTicket(ticket, draw);
   }
 
   async getHistory(): Promise<SavedTicket[]> {

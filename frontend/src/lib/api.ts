@@ -1,6 +1,7 @@
-import { Draw, LotteryApi, SavedTicket, UserSession, UserStats } from "@/types";
+import { Draw, LotteryApi, MatchResult, SavedTicket, UserSession, UserStats } from "@/types";
 import { generateSeedTickets, SEED_DRAWS } from "./mockData";
 import { MOCK_USER } from "./mockApi";
+import { checkTicket } from "./checkTicket";
 import {
   toFrontendDraw,
   toFrontendDrawListItem,
@@ -110,6 +111,34 @@ export class HttpLotteryApiService implements LotteryApi {
       const match = SEED_DRAWS.find((d) => d.id === id);
       return match || null;
     }
+  }
+
+  async checkTicket(ticket: string, drawId: string): Promise<MatchResult> {
+    try {
+      const res = await fetch(`${this.baseUrl}/draws/${encodeURIComponent(drawId)}/check`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticket }),
+      });
+      if (res.ok) {
+        return (await res.json()) as MatchResult;
+      }
+    } catch (err) {
+      console.warn("Live API /draws/:id/check failed, falling back to local evaluation:", err);
+    }
+    // Fallback to local check
+    const draw = await this.getDrawById(drawId);
+    if (!draw) {
+      return {
+        kind: "none",
+        tier: "Draw Not Found",
+        amount: 0,
+        formattedAmount: "₹0",
+        matchedIndices: [],
+        summary: "Unable to find draw results",
+      };
+    }
+    return checkTicket(ticket, draw);
   }
 
   async nudge(drawCode: string): Promise<boolean> {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { parseTicket } from "../parser";
 import { checkTicket } from "../checkTicket";
+import { getScheme } from "../schemes";
 import { Draw } from "@/types";
 
 const mockDraw: Draw = {
@@ -145,5 +146,47 @@ describe("checkTicket", () => {
     const forcedNone = checkTicket("WA 584920", mockDraw, "none");
     expect(forcedNone.kind).toBe("none");
     expect(forcedNone.amount).toBe(0);
+  });
+
+  it("should award Consolation Prize for Bhagyathara BT-81 ticket BB 573685", () => {
+    const bt81Draw: Draw = {
+      id: "BT-81",
+      schemeCode: "BT",
+      drawNumber: 81,
+      drawDate: "2026-11-23",
+      isPublished: true,
+      prizes: {
+        firstPrize: {
+          series: "BE",
+          number: "573685",
+          amount: 10000000,
+        },
+        consolationPrize: {
+          amount: 5000,
+        },
+        last4Prizes: [],
+      },
+    };
+
+    const result = checkTicket("BB 573685", bt81Draw);
+    expect(result.kind).toBe("mid");
+    expect(result.tier).toBe("Consolation Prize");
+    expect(result.amount).toBe(5000);
+    expect(result.formattedAmount).toBe("₹5,000");
+    expect(result.matchedIndices).toEqual([2, 3, 4, 5, 6, 7]);
+    expect(result.closestMatch).toBe("Same number as the 1st prize, different series");
+    expect(result.summary).toBe("Consolation prize winner");
+  });
+});
+
+describe("getScheme", () => {
+  it("resolves scheme codes correctly", () => {
+    expect(getScheme("BT").name).toBe("Bhagyathara");
+    expect(getScheme("B").name).toBe("Bhagyathara");
+    expect(getScheme("SM").name).toBe("Samrudhi");
+    expect(getScheme("SS").name).toBe("Sthree Sakthi");
+    expect(getScheme("W").name).toBe("Win-Win");
+    expect(getScheme("NR").name).toBe("Nirmal");
+    expect(getScheme("N").name).toBe("Nirmal");
   });
 });

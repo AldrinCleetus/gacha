@@ -140,10 +140,14 @@ export function Dashboard() {
 
           <div
             className={`text-4xl sm:text-6xl font-black tracking-tight tabular-nums ${
-              isNetPositive ? "text-primary" : "text-main"
+              stats.netProfitLoss > 0
+                ? "text-primary"
+                : stats.netProfitLoss < 0
+                ? "text-rose-600 dark:text-rose-400"
+                : "text-main"
             }`}
           >
-            {stats.netProfitLoss < 0 ? "-" : "+"}
+            {stats.netProfitLoss < 0 ? "- ₹" : stats.netProfitLoss > 0 ? "+ ₹" : "₹"}
             <CountUp end={Math.abs(stats.netProfitLoss)} duration={1800} />
           </div>
 
@@ -220,7 +224,9 @@ export function Dashboard() {
               <span>Longest Dry Spell</span>
             </div>
             <div className="text-base font-bold text-main mt-1">
-              {stats.longestDrySpell} draws without win
+              {stats.totalTickets === 0
+                ? "0 draws"
+                : `${stats.longestDrySpell} draw${stats.longestDrySpell !== 1 ? "s" : ""} without win`}
             </div>
           </div>
 
@@ -261,22 +267,31 @@ export function Dashboard() {
           </div>
         </div>
 
-        <div className="h-60 sm:h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-60 sm:h-64 w-full min-w-0">
+          <ResponsiveContainer width="100%" height="100%" minHeight={240}>
             <LineChart data={filteredTimeline} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 10 }}
                 tickFormatter={(val) => {
-                  const parts = val.split("-");
-                  return `${parts[2]}/${parts[1]}`;
+                  try {
+                    const d = new Date(val);
+                    if (!isNaN(d.getTime())) {
+                      return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+                    }
+                  } catch {
+                    // ignore
+                  }
+                  return String(val);
                 }}
                 stroke="var(--color-muted)"
               />
               <YAxis
                 tick={{ fontSize: 10 }}
-                tickFormatter={(val) => `₹${val}`}
+                tickFormatter={(val) =>
+                  Math.abs(val) >= 1000 ? `₹${(val / 1000).toFixed(0)}k` : `₹${val}`
+                }
                 stroke="var(--color-muted)"
               />
               <Tooltip
@@ -310,14 +325,16 @@ export function Dashboard() {
           <p className="text-xs text-muted">Monthly comparison of expenditure and prize returns</p>
         </div>
 
-        <div className="h-60 sm:h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-60 sm:h-64 w-full min-w-0">
+          <ResponsiveContainer width="100%" height="100%" minHeight={240}>
             <BarChart data={stats.monthlyBreakdown} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
               <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="var(--color-muted)" />
               <YAxis
                 tick={{ fontSize: 10 }}
-                tickFormatter={(val) => `₹${val}`}
+                tickFormatter={(val) =>
+                  Math.abs(val) >= 1000 ? `₹${(val / 1000).toFixed(0)}k` : `₹${val}`
+                }
                 stroke="var(--color-muted)"
               />
               <Tooltip
@@ -343,7 +360,9 @@ export function Dashboard() {
         <h2 className="text-sm font-bold text-main">By-Scheme Breakdown</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {Object.entries(stats.schemeBreakdown).map(([code, item]) => {
+          {Object.entries(stats.schemeBreakdown)
+            .sort(([, a], [, b]) => b.count - a.count)
+            .map(([code, item]) => {
             const scheme = getScheme(code);
             const net = item.won - item.spent;
             const isPos = net >= 0;

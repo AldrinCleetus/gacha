@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { parseTicket } from "@/lib/parser";
 import { getScheme } from "@/lib/schemes";
-import { Lock, Calendar, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Lock, Calendar, CheckCircle2, ShieldCheck, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 
 export type TicketState = "idle" | "scanning" | "won" | "lost";
@@ -97,7 +97,10 @@ export function TicketGraphic({
     let text = "No positions matched";
     let isPositive = false;
 
-    if (matchCount === 8) {
+    if (tierLabel === "Results Pending") {
+      text = "Results awaiting official publication";
+      isPositive = false;
+    } else if (matchCount === 8) {
       text = "All 8 positions matched";
       isPositive = true;
     } else if (matchCount > 0) {
@@ -246,16 +249,22 @@ export function TicketGraphic({
           {/* Status Row under Character Boxes: Positions Matched & Series */}
           <div className="flex items-center justify-between gap-2 pt-0.5 min-w-0">
             <div className="flex items-center gap-1.5 min-w-0 truncate">
-              <CheckCircle2
-                className={`w-3.5 h-3.5 shrink-0 transition-colors ${
-                  statusInfo.isPositive
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-muted"
-                }`}
-              />
+              {tierLabel === "Results Pending" ? (
+                <Clock className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              ) : (
+                <CheckCircle2
+                  className={`w-3.5 h-3.5 shrink-0 transition-colors ${
+                    statusInfo.isPositive
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-muted"
+                  }`}
+                />
+              )}
               <span
                 className={`text-[11px] sm:text-xs font-bold truncate transition-colors ${
-                  statusInfo.isPositive
+                  tierLabel === "Results Pending"
+                    ? "text-amber-700 dark:text-amber-400"
+                    : statusInfo.isPositive
                     ? "text-emerald-700 dark:text-emerald-400"
                     : "text-muted"
                 }`}
@@ -272,15 +281,27 @@ export function TicketGraphic({
           {/* Security Row: Cryptographically matched sequence & Prize Tier */}
           <div className="flex items-center justify-between gap-2 text-[10px] sm:text-[11px] min-w-0">
             <div className="flex items-center gap-1.5 font-semibold text-slate-600 dark:text-slate-400 min-w-0 truncate">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              {tierLabel === "Results Pending" ? (
+                <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              ) : (
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              )}
               <span className="truncate">
-                {statusInfo.isPositive
+                {tierLabel === "Results Pending"
+                  ? "Scheduled for Kerala Std Time 15:00"
+                  : statusInfo.isPositive
                   ? "Cryptographically matched sequence"
                   : "Sequence verified against draw"}
               </span>
             </div>
 
-            <span className="font-mono font-bold text-slate-600 dark:text-slate-400 shrink-0 text-right">
+            <span
+              className={`font-mono font-bold shrink-0 text-right ${
+                tierLabel === "Results Pending"
+                  ? "text-amber-700 dark:text-amber-400"
+                  : "text-slate-600 dark:text-slate-400"
+              }`}
+            >
               {effectiveTier}
             </span>
           </div>

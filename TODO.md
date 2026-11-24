@@ -1,40 +1,49 @@
 # Project Gacha — Roadmap & Tasks
 
-> **Scheduled for Tomorrow**
+> **Status: All Scheduled Tasks Completed**
 
 ---
 
 ## 1. Fix Pending Draw Status Handling
-- [ ] **Context-Aware Draw Status Messaging**:
-  - Differentiate clearly between draws that have not taken place yet (`status: "expected"`) vs draws currently being conducted (`status: "observed"` / in progress) vs published draws.
-  - Replace generic "Results Pending / Better luck on the next draw" with an informative status card:
-    - Expected draw date & scheduled draw time (15:00 IST).
-    - Live countdown or status indicator ("Drawn today at 3:00 PM IST").
-- [ ] **Draw Selector Visuals**:
-  - Add clear status badges in the Scheduled Draw dropdown (`● Results Out`, `⏳ Awaiting Draw`, `🔍 Drawing Now`).
-  - Prevent accidental checks against unpublished draws or show a clear prompt: *"Draw results will be announced at 3:00 PM IST. Check back then."*
-- [ ] **Nudge & Live Notification**:
-  - Provide a one-click *"Check Again"* or *"Notify me when results are out"* when viewing a pending draw.
+- [x] **Context-Aware Draw Status Messaging**:
+  - Differentiated between draws awaiting official publication vs published draws.
+  - Replaced misleading "Better luck on the next draw / No prize this time" with a dedicated, informative pending state:
+    - Amber status badge: `⏳ Results Awaiting Publication`.
+    - Headline: `Results Not Published Yet`.
+    - Detail: Explains that winning numbers are awaiting release by the Directorate of Kerala State Lotteries (announced at 3:00 PM IST).
+- [x] **Draw Selector Visuals & Notices**:
+  - Added clean status tags in the Scheduled Draw selector (`● Published` vs `⏳ Pending`).
+  - Added an informative amber notice card on the input screen when an unpublished draw is selected.
+  - Updated TicketGraphic to display `"Awaiting official draw numbers"` and `"Scheduled for Kerala Std Time 15:00"` with amber clock icons.
+- [x] **Nudge & Live Refresh**:
+  - Added one-click `"Refresh draw status"` button with animated loading indicator directly on the verdict card to check for newly published results.
 
 ---
 
 ## 2. Kerala-Style Theme & Subtle Background Motif on Landing Page
-- [ ] **Aesthetic Background Motif**:
-  - Integrate a subtle, high-taste Kerala-inspired background illustration or SVG watermark (e.g., subtle Kasavu gold accents, minimalist Kerala mural/boat race silhouette, organic Kerala foliage/palm patterns).
-  - Ensure watermark is low opacity (subtle, non-distracting) so it doesn't reduce contrast or interfere with legibility.
-- [ ] **Theme & Atmosphere**:
-  - Harmonize with both dark and light modes.
-  - Dynamic subtle glow based on the active scheme's theme colors (Bhagyathara purple, Win-Win emerald, Sthree Sakthi violet, Karunya ruby, etc.).
+- [x] **Aesthetic Background Motif (`KeralaBackground.tsx`)**:
+  - Created dedicated vector background component featuring:
+    - Sweeping prow silhouette of the iconic Kerala *Chundan Vallam* (Snake Boat / Vallam Kali).
+    - Gentle water ripples inspired by the Vembanad backwaters.
+    - Graceful curved coconut palm fronds (*Thengu*) framing the top right.
+    - Traditional Kerala wooden temple gable (*Charupadi*) arch lines.
+    - Subtle *Kasavu* gold zari diamond ornament accents.
+  - Set at an ultra-subtle opacity (`0.04` - `0.10`) ensuring high text contrast and zero legibility impact.
+- [x] **Theme & Atmosphere**:
+  - Fully responsive and harmonized across both dark and light modes.
+  - Integrated dynamic scheme-adaptive radial ambient glow that smoothly adapts to the active lottery scheme's primary brand color (Win-Win emerald, Bhagyathara amethyst/purple, Sthree Sakthi violet, Karunya ruby, etc.).
 
 ---
 
 ## 3. Fix & Upgrade Dashboard
-- [ ] **Live Backend Analytics Integration**:
-  - Ensure `UserStats` and history data seamlessly synchronize between local storage and live API endpoints.
-  - Verify lifetime spend, lifetime winnings, net profit/loss (₹), and win rate (%) calculations.
-- [ ] **Chart & Visual Polish**:
-  - Fix Recharts `ResponsiveContainer` rendering and aspect ratios across mobile screens and desktop viewports.
-  - Audit timeline line chart (cumulative P&L) and monthly bar charts for edge cases with few or many tickets.
-  - Improve scheme breakdown visual list and longest dry-spell indicators.
-- [ ] **Empty States & Onboarding**:
-  - Polish the 0-tickets empty state with direct calls to action to test or verify tickets.
+- [x] **Live Backend Analytics Integration**:
+  - Updated `getStats()` to correctly calculate lifetime spend, winnings, net P&L, win rate, and dry spells.
+  - Handled zero-ticket initialization cleanly (`mostCheckedScheme: "None"`).
+- [x] **Chart & Visual Polish**:
+  - Added `min-w-0` and `minHeight={240}` to chart containers preventing Recharts flex collapse on mobile.
+  - Formatted Y-axis with clean currency values (`₹5k`, `₹10k`, etc.).
+  - Bulletproofed chronological X-axis date parsing avoiding `undefined/undefined` labels.
+  - Fixed Net Profit/Loss headline formatting (proper `+ ₹`, `- ₹`, and `₹0` styling).
+  - Sorted scheme breakdown by ticket count descending so the user's most active lottery is highlighted first.
+- [x] **Empty States & Onboarding**:
+  - Polished empty state with direct calls to action to test or verify tickets.

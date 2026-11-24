@@ -5,6 +5,7 @@ import confetti from "canvas-confetti";
 import { SegmentedInput } from "@/components/check/SegmentedInput";
 import { SchemeChip } from "@/components/check/SchemeChip";
 import { TicketGraphic } from "@/components/ticket/TicketGraphic";
+import { KeralaBackground } from "@/components/layout/KeralaBackground";
 import { CountUp } from "@/components/reveal/CountUp";
 import { parseTicket } from "@/lib/parser";
 import { checkTicket, formatINR } from "@/lib/checkTicket";
@@ -27,6 +28,8 @@ import {
   Sparkles,
   RotateCcw,
   Share2,
+  Clock,
+  RefreshCw,
 } from "lucide-react";
 
 type RevealPhase = "MORPH" | "SCAN" | "JUDGEMENT" | "PAUSE" | "VERDICT";
@@ -73,6 +76,7 @@ export function Check({ initialChecking = false }: CheckProps) {
   const [evalResult, setEvalResult] = useState<MatchResult | null>(null);
   const [showSkip, setShowSkip] = useState<boolean>(false);
   const [isJackpotDimmed, setIsJackpotDimmed] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   const firstLetter = characters[0] || "";
   const parsed = parseTicket(characters.join(""));
@@ -499,6 +503,29 @@ export function Check({ initialChecking = false }: CheckProps) {
     }
   };
 
+  const handleRefreshDraw = async () => {
+    if (!activeDraw) return;
+    setIsRefreshing(true);
+    try {
+      const full = await lotteryApi.getDrawById(activeDraw.id);
+      if (full) {
+        setFullActiveDraw(full);
+        if (full.isPublished && full.prizes && parsed.isValid) {
+          let res: MatchResult;
+          if (lotteryApi.checkTicket) {
+            res = await lotteryApi.checkTicket(parsed.fullTicketString, full.id);
+          } else {
+            res = checkTicket(parsed, full);
+          }
+          setEvalResult(res);
+          setLastResult(res, false);
+        }
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const formatDrawLabel = (draw?: Draw) => {
     if (!draw) return "Select draw";
     try {
@@ -509,7 +536,9 @@ export function Check({ initialChecking = false }: CheckProps) {
         month: "short",
       });
       const scheme = getScheme(draw.schemeCode);
-      return `${scheme.name} ${draw.id} (${formattedDate})`;
+      const statusIcon = draw.isPublished ? "●" : "⏳";
+      const statusTag = draw.isPublished ? "Published" : "Pending";
+      return `${statusIcon} ${scheme.name} ${draw.id} · ${formattedDate} (${statusTag})`;
     } catch {
       return `${draw.id} draw`;
     }
@@ -519,6 +548,8 @@ export function Check({ initialChecking = false }: CheckProps) {
 
   return (
     <div className="flex-1 flex flex-col justify-between relative">
+      {/* Kerala Traditional Background & Scheme Glow */}
+      <KeralaBackground scheme={getScheme(activeDraw?.schemeCode)} />
       {/* Dim overlay during checking sequence */}
       <AnimatePresence>
         {isChecking && (
@@ -665,6 +696,19 @@ export function Check({ initialChecking = false }: CheckProps) {
                     </div>
                   </div>
 
+                  {/* Pending Notice Banner when selected draw is awaiting results */}
+                  {activeDraw && !activeDraw.isPublished && (
+                    <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5 text-left">
+                      <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div className="flex-1 space-y-0.5">
+                        <span className="font-bold">Official Results Pending:</span>
+                        <p className="text-[11px] text-amber-800/90 dark:text-amber-300/80">
+                          Winning numbers for Draw {activeDraw.id} ({activeDraw.drawDate}) have not been published yet. Kerala lotteries are announced at 3:00 PM IST. You can enter your ticket now to check its status.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Full-width Green Button */}
                   <motion.button
                     whileTap={{ scale: 0.98 }}
@@ -762,22 +806,24 @@ export function Check({ initialChecking = false }: CheckProps) {
               >
                 {/* Badge Header */}
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold">
-                  {evalResult.kind === "jackpot" && (
+                  {evalResult.tier === "Results Pending" ? (
+                    <span className="bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700/80 px-3.5 py-1 rounded-full flex items-center gap-1.5 font-bold shadow-2xs">
+                      <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      Results Awaiting Publication
+                    </span>
+                  ) : evalResult.kind === "jackpot" ? (
                     <span className="bg-gold-bg text-gold-text border border-gold-border px-3.5 py-1 rounded-full flex items-center gap-1.5 font-bold shadow-sm">
                       <Trophy className="w-4 h-4 text-gold-text" /> Bumper 1st Prize Winner
                     </span>
-                  )}
-                  {evalResult.kind === "mid" && (
+                  ) : evalResult.kind === "mid" ? (
                     <span className="bg-primary/10 text-primary px-3.5 py-1 rounded-full flex items-center gap-1.5 font-bold">
                       <Award className="w-4 h-4" /> {evalResult.tier} Winner
                     </span>
-                  )}
-                  {evalResult.kind === "small" && (
+                  ) : evalResult.kind === "small" ? (
                     <span className="bg-primary/10 text-primary px-3.5 py-1 rounded-full flex items-center gap-1.5 font-bold">
                       <Sparkles className="w-4 h-4" /> {evalResult.tier} Winner
                     </span>
-                  )}
-                  {evalResult.kind === "none" && (
+                  ) : (
                     <span className="bg-input-box text-muted px-3.5 py-1 rounded-full">
                       No prize this time
                     </span>
@@ -790,6 +836,10 @@ export function Check({ initialChecking = false }: CheckProps) {
                     <div className="text-3xl sm:text-5xl font-black text-main font-mono tracking-tight">
                       <CountUp end={evalResult.amount} duration={1400} />
                     </div>
+                  ) : evalResult.tier === "Results Pending" ? (
+                    <div className="text-2xl sm:text-3xl font-bold text-main">
+                      Results Not Published Yet
+                    </div>
                   ) : (
                     <div className="text-2xl sm:text-3xl font-bold text-main">
                       Better luck on the next draw
@@ -797,12 +847,14 @@ export function Check({ initialChecking = false }: CheckProps) {
                   )}
 
                   <p className="text-xs sm:text-sm text-muted max-w-sm mx-auto">
-                    {evalResult.summary}
+                    {evalResult.tier === "Results Pending"
+                      ? `The Directorate of Kerala State Lotteries has not released the winning numbers for Draw ${activeDraw?.id} yet. Official results are announced at 3:00 PM IST.`
+                      : evalResult.summary}
                   </p>
                 </div>
 
                 {/* Truthful Near-Miss Text */}
-                {evalResult.closestMatch && (
+                {evalResult.closestMatch && evalResult.tier !== "Results Pending" && (
                   <div className="text-xs text-subtle py-1 px-3 rounded-xl bg-input-box inline-block">
                     {evalResult.closestMatch}
                   </div>
@@ -810,31 +862,53 @@ export function Check({ initialChecking = false }: CheckProps) {
 
                 {/* Action Buttons */}
                 <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
-                  <button
-                    onClick={handleCheckAnother}
-                    className="flex-1 py-3 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-soft transition-colors cursor-pointer"
-                  >
-                    <span>Check another lottery</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  {evalResult.tier === "Results Pending" ? (
+                    <>
+                      <button
+                        onClick={handleRefreshDraw}
+                        disabled={isRefreshing}
+                        className="flex-1 py-3 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-soft transition-colors cursor-pointer"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+                        <span>{isRefreshing ? "Checking for updates…" : "Refresh draw status"}</span>
+                      </button>
 
-                  <button
-                    onClick={handleReplayCurrent}
-                    title="Replay animation"
-                    className="py-3 px-3.5 rounded-xl border border-border bg-surface hover:bg-input-box text-muted hover:text-main text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Replay</span>
-                  </button>
+                      <button
+                        onClick={handleCheckAnother}
+                        className="py-3 px-4 rounded-xl border border-border bg-surface hover:bg-input-box text-muted hover:text-main text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <span>Select another draw</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleCheckAnother}
+                        className="flex-1 py-3 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-soft transition-colors cursor-pointer"
+                      >
+                        <span>Check another lottery</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
 
-                  <button
-                    onClick={handleShare}
-                    title="Export result"
-                    className="py-3 px-3.5 rounded-xl border border-border bg-surface hover:bg-input-box text-muted hover:text-main text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                  >
-                    <Share2 className="w-3.5 h-3.5" />
-                    <span>Share</span>
-                  </button>
+                      <button
+                        onClick={handleReplayCurrent}
+                        title="Replay animation"
+                        className="py-3 px-3.5 rounded-xl border border-border bg-surface hover:bg-input-box text-muted hover:text-main text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Replay</span>
+                      </button>
+
+                      <button
+                        onClick={handleShare}
+                        title="Export result"
+                        className="py-3 px-3.5 rounded-xl border border-border bg-surface hover:bg-input-box text-muted hover:text-main text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>Share</span>
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 {/* Official Results Breakdown Link */}

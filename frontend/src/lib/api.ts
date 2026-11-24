@@ -272,7 +272,7 @@ export class HttpLotteryApiService implements LotteryApi {
       }))
       .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
-    let mostCheckedScheme = "Win-Win";
+    let mostCheckedScheme = totalTickets === 0 ? "None" : "Win-Win";
     let maxCount = 0;
     const schemeNames: Record<string, string> = {
       W: "Win-Win",
@@ -282,9 +282,11 @@ export class HttpLotteryApiService implements LotteryApi {
       AK: "Akshaya",
       K: "Karunya Plus",
       KN: "Karunya Plus",
+      N: "Nirmal",
       NR: "Nirmal",
       KR: "Karunya",
       SM: "Samrudhi",
+      B: "Bhagyathara",
       BT: "Bhagyathara",
     };
     for (const [code, item] of Object.entries(schemeBreakdown)) {

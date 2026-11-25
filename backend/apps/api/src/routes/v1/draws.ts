@@ -5,9 +5,13 @@ import {
   getDb,
   draws,
   schemes,
+  prizeEntries,
   eq,
   and,
+  or,
   lt,
+  ilike,
+  inArray,
   sql,
 } from "@gacha/db";
 import {
@@ -27,11 +31,20 @@ const DrawListItemSchema = z.object({
   status: z.string(),
   publishedAt: z.string().nullable(),
   fingerprint: z.string().nullable(),
+  firstPrize: z
+    .object({
+      ticket: z.string(),
+      amount: z.number(),
+    })
+    .nullable()
+    .optional(),
 });
 
 const DrawsListResponseSchema = z.object({
   draws: z.array(DrawListItemSchema),
   limit: z.number(),
+  offset: z.number(),
+  total: z.number(),
   hasMore: z.boolean(),
 });
 
@@ -93,16 +106,18 @@ const DrawStatusResponseSchema = z.object({
 export const drawsRoutes: FastifyPluginAsync = async (app) => {
   const typed = app.withTypeProvider<ZodTypeProvider>();
 
-  // 1. GET /draws (list view)
+  // 1. GET /draws (list view with pagination & search)
   typed.get(
     "/draws",
     {
       schema: {
         tags: ["draws"],
-        summary: "List recent published lottery draws with optional scheme and before filters",
+        summary: "List recent published lottery draws with pagination, scheme, search, and before filters",
         querystring: z.object({
           limit: z.coerce.number().int().min(1).max(100).default(20),
+          offset: z.coerce.number().int().min(0).default(0),
           scheme: z.string().optional(),
+          q: z.string().trim().optional(),
           before: z
             .string()
             .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD")
@@ -114,7 +129,7 @@ export const drawsRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const { limit, scheme, before } = request.query;
+      const { limit, offset, scheme, q, before } = request.query;
       const db = getDb();
 
       const conditions = [eq(draws.status, "published")];
@@ -124,37 +139,108 @@ export const drawsRoutes: FastifyPluginAsync = async (app) => {
       if (before) {
         conditions.push(lt(draws.drawDate, before));
       }
+      if (q && q.length > 0) {
+        const pattern = `%${q}%`;
+        const searchConditions = [
+          ilike(draws.drawCode, pattern),
+          ilike(draws.schemeCode, pattern),
+          sql`${draws.drawDate}::text ILIKE ${pattern}`,
+        ];
+
+        if (typeof db.select === "function") {
+          searchConditions.push(
+            inArray(
+              draws.schemeCode,
+              db
+                .select({ code: schemes.code })
+                .from(schemes)
+                .where(ilike(schemes.name, pattern))
+            )
+          );
+          const cleanTicketQuery = q.replace(/\s+/g, "");
+          if (cleanTicketQuery.length >= 2) {
+            searchConditions.push(
+              inArray(
+                draws.id,
+                db
+                  .select({ drawId: prizeEntries.drawId })
+                  .from(prizeEntries)
+                  .where(ilike(prizeEntries.entry, `%${cleanTicketQuery}%`))
+              )
+            );
+          }
+        }
+
+        const searchClause = or(...searchConditions);
+        if (searchClause) {
+          conditions.push(searchClause);
+        }
+      }
+
+      const whereClause = and(...conditions);
 
       const rows = await db.query.draws.findMany({
-        where: and(...conditions),
+        where: whereClause,
         with: {
           scheme: true,
+          tiers: {
+            where: (tiersTable, { eq: eqOp }) => eqOp(tiersTable.tier, "1"),
+          },
+          entries: {
+            where: (entriesTable, { eq: eqOp }) => eqOp(entriesTable.tier, "1"),
+          },
         },
         orderBy: (drawsTable, { desc }) => [
           desc(drawsTable.drawDate),
           desc(drawsTable.publishedAt),
         ],
+        offset,
         limit: limit + 1,
       });
 
       const hasMore = rows.length > limit;
       const items = hasMore ? rows.slice(0, limit) : rows;
 
-      const formatted = items.map((d) => ({
-        id: d.id,
-        schemeCode: d.schemeCode,
-        schemeName: d.scheme?.name || d.schemeCode,
-        drawCode: d.drawCode,
-        drawDate: d.drawDate,
-        status: d.status,
-        publishedAt: d.publishedAt ? d.publishedAt.toISOString() : null,
-        fingerprint: d.fingerprint,
-      }));
+      let total = offset + items.length + (hasMore ? 1 : 0);
+      if (typeof db.select === "function") {
+        const countRows = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(draws)
+          .where(whereClause);
+        if (countRows[0] && typeof countRows[0].count === "number") {
+          total = countRows[0].count;
+        }
+      }
+
+      const formatted = items.map((d) => {
+        const tier1 = (d as { tiers?: Array<{ tier: string; amount: number }> }).tiers?.find(
+          (t) => t.tier === "1"
+        );
+        const entry1 = (d as { entries?: Array<{ tier: string; entry: string }> }).entries?.find(
+          (e) => e.tier === "1"
+        );
+        return {
+          id: d.id,
+          schemeCode: d.schemeCode,
+          schemeName: d.scheme?.name || d.schemeCode,
+          drawCode: d.drawCode,
+          drawDate: d.drawDate,
+          status: d.status,
+          publishedAt: d.publishedAt ? d.publishedAt.toISOString() : null,
+          fingerprint: d.fingerprint,
+          firstPrize:
+            tier1 && entry1
+              ? { ticket: entry1.entry, amount: Number(tier1.amount) }
+              : null,
+        };
+      });
 
       reply.header("Cache-Control", "public, max-age=60, s-maxage=60");
       return reply.send({
         draws: formatted,
         limit,
+        offset,
+        total,
         hasMore,
       });
     }

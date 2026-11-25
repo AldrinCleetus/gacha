@@ -128,7 +128,7 @@ export function TicketGraphic({
 
   return (
     <div
-      className={`relative bg-surface rounded-2xl sm:rounded-3xl border border-border shadow-soft select-none transition-colors duration-200 overflow-hidden w-full ${sizeClasses} ${className}`}
+      className={`relative bg-surface rounded-2xl sm:rounded-3xl border border-border shadow-soft select-text transition-colors duration-200 overflow-hidden w-full ${sizeClasses} ${className}`}
     >
       <div className="flex w-full min-h-[190px] sm:min-h-[230px]">
         {/* 1. Left Counterfoil Stub (~28-30% width) */}

@@ -5,107 +5,120 @@ interface KeralaBackgroundProps {
   scheme?: Scheme;
 }
 
+/**
+ * Reusable minimalist coconut palm silhouette composed of a gracefully
+ * curving tapered trunk and sleek drooping frond blades.
+ */
+function CoconutPalm({
+  transform,
+  opacity = 1,
+}: {
+  transform: string;
+  opacity?: number;
+}) {
+  return (
+    <g transform={transform} opacity={opacity}>
+      {/* Tapered curved trunk */}
+      <path d="M -5 0 C -4 -52, 8 -102, 28 -148 L 32 -147 C 14 -100, 4 -50, 4 0 Z" />
+
+      {/* Palm crown fronds radiating organically */}
+      <g transform="translate(30, -147)">
+        {/* Upper-left sweeping frond */}
+        <path d="M 0 0 C -18 -26, -48 -28, -74 -6 C -52 -16, -26 -14, -1 3 Z" />
+        {/* Lower-left drooping frond */}
+        <path d="M 0 1 C -26 -6, -54 8, -72 34 C -50 16, -25 6, 1 4 Z" />
+        {/* High center-left frond */}
+        <path d="M 0 0 C -6 -32, -28 -50, -54 -44 C -32 -38, -14 -24, 1 2 Z" />
+        {/* High center-right frond */}
+        <path d="M 1 0 C 12 -32, 38 -48, 62 -38 C 38 -36, 18 -22, 2 2 Z" />
+        {/* Upper-right sweeping frond */}
+        <path d="M 2 0 C 26 -20, 56 -16, 80 10 C 56 -4, 30 -6, 1 3 Z" />
+        {/* Lower-right drooping frond */}
+        <path d="M 2 2 C 26 -2, 52 14, 66 42 C 46 20, 24 8, 0 4 Z" />
+        {/* Subtle center vertical sprout */}
+        <path d="M 0 0 C 0 -22, 6 -40, 14 -54 C 9 -36, 4 -18, 2 1 Z" />
+      </g>
+    </g>
+  );
+}
+
 export function KeralaBackground({ scheme }: KeralaBackgroundProps) {
   const themePrimary = scheme?.theme.primary || "var(--color-primary)";
 
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 overflow-hidden select-none z-0"
+      className="pointer-events-none fixed inset-0 overflow-hidden select-none z-0"
     >
-      {/* 1. Dynamic Scheme Radial Ambient Glow */}
+      {/* 1. Whisper-quiet scheme-adaptive ambient glow */}
       <div
-        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] sm:w-[900px] h-[500px] sm:h-[650px] rounded-full blur-3xl opacity-25 dark:opacity-20 transition-all duration-700 ease-out"
+        className="absolute -top-24 left-1/2 -translate-x-1/2 w-[780px] sm:w-[1040px] h-[460px] sm:h-[560px] rounded-full blur-3xl opacity-[0.10] dark:opacity-[0.13] transition-all duration-700 ease-out"
         style={{
-          background: `radial-gradient(circle, ${themePrimary} 0%, rgba(254, 231, 176, 0.15) 45%, transparent 70%)`,
+          background: `radial-gradient(ellipse at center, ${themePrimary} 0%, transparent 72%)`,
         }}
       />
 
-      {/* 2. Top-Right: Stylized Kerala Coconut Palm Fronds */}
-      <svg
-        className="absolute -top-12 -right-12 sm:-top-8 sm:-right-8 w-72 sm:w-96 md:w-[480px] h-72 sm:h-96 md:h-[480px] text-primary/10 dark:text-primary/10 transition-colors duration-500"
-        viewBox="0 0 400 400"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.2"
-        strokeLinecap="round"
+      {/* 2. Calm Kerala backwater horizon anchored cleanly at the bottom edge */}
+      <div
+        className="absolute bottom-0 inset-x-0 h-[190px] sm:h-[250px] text-main opacity-[0.045] dark:opacity-[0.065] transition-opacity duration-500"
+        style={{
+          WebkitMaskImage:
+            "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.75) 55%, rgba(0,0,0,0) 100%)",
+          maskImage:
+            "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.75) 55%, rgba(0,0,0,0) 100%)",
+        }}
       >
-        {/* Palm Stems */}
-        <path d="M 420 -20 C 350 80, 240 160, 100 240" strokeWidth="2.5" opacity="0.8" />
-        <path d="M 420 50 C 330 130, 260 220, 180 320" strokeWidth="2" opacity="0.6" />
-        <path d="M 380 -40 C 300 40, 200 110, 80 160" strokeWidth="1.8" opacity="0.7" />
+        <svg
+          className="w-full h-full"
+          viewBox="0 0 1440 260"
+          preserveAspectRatio="xMidYMax slice"
+          fill="currentColor"
+        >
+          {/* Left bank cluster of leaning coconut palms */}
+          <CoconutPalm transform="translate(88, 258) scale(1.05)" />
+          <CoconutPalm
+            transform="translate(170, 260) scale(-0.78, 0.82)"
+            opacity={0.78}
+          />
+          <CoconutPalm
+            transform="translate(26, 264) scale(0.72, 0.76)"
+            opacity={0.65}
+          />
 
-        {/* Leaves along primary stem */}
-        <path d="M 320 100 C 300 60, 280 40, 250 30" />
-        <path d="M 300 115 C 275 80, 250 65, 215 60" />
-        <path d="M 280 130 C 250 100, 220 90, 185 85" />
-        <path d="M 260 145 C 225 120, 190 110, 155 110" />
-        <path d="M 240 160 C 200 140, 160 135, 125 135" />
-        <path d="M 210 180 C 170 165, 130 160, 95 165" />
-        <path d="M 180 200 C 145 190, 105 190, 70 200" />
-        <path d="M 150 218 C 120 215, 85 220, 50 235" />
+          {/* Soft left shoreline landmass */}
+          <path d="M 0 260 L 0 228 Q 115 218, 255 244 Q 320 256, 390 260 Z" />
 
-        {/* Drooping opposing leaves */}
-        <path d="M 340 90 C 330 130, 310 160, 280 180" />
-        <path d="M 310 110 C 295 150, 270 180, 235 200" />
-        <path d="M 280 130 C 260 170, 230 200, 195 220" />
-        <path d="M 250 150 C 225 190, 190 220, 155 240" />
-        <path d="M 220 172 C 190 210, 150 238, 110 255" />
-      </svg>
+          {/* Right bank distant coconut palms */}
+          <CoconutPalm
+            transform="translate(1335, 258) scale(-0.96, 1.0)"
+            opacity={0.9}
+          />
+          <CoconutPalm
+            transform="translate(1258, 262) scale(0.70, 0.74)"
+            opacity={0.65}
+          />
 
-      {/* 3. Bottom-Left: Elegant Kerala Vallam Kali (Snake Boat) & Backwaters Curve */}
-      <svg
-        className="absolute -bottom-8 -left-8 sm:-bottom-4 sm:-left-4 w-80 sm:w-[450px] md:w-[560px] h-60 sm:h-80 md:h-96 text-primary/10 dark:text-primary/10 transition-colors duration-500"
-        viewBox="0 0 600 360"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.2"
-        strokeLinecap="round"
-      >
-        {/* Iconic high sweeping prow of Kerala Chundan Vallam */}
-        <path
-          d="M -40 280 C 120 280, 240 270, 360 220 C 420 195, 460 150, 480 90 C 490 60, 492 30, 488 10 C 485 -5, 475 -5, 472 8 C 468 25, 465 55, 448 95 C 430 135, 395 175, 340 200 C 230 250, 110 258, -40 260"
-          strokeWidth="2"
-          opacity="0.85"
-        />
+          {/* Soft right shoreline landmass */}
+          <path d="M 1440 260 L 1440 232 Q 1340 224, 1215 248 Q 1155 258, 1095 260 Z" />
 
-        {/* Traditional Ornamental Prow Spirals & Crest */}
-        <circle cx="480" cy="18" r="7" strokeWidth="1.5" />
-        <circle cx="480" cy="18" r="2.5" fill="currentColor" opacity="0.6" />
-        <path d="M 460 70 C 475 75, 485 85, 490 100" strokeWidth="1" strokeDasharray="2 3" />
-        <path d="M 435 120 C 455 125, 470 140, 475 160" strokeWidth="1" strokeDasharray="2 3" />
+          {/* Minimalist Kettuvallam (Kerala houseboat) gliding gently on the backwater */}
+          <g transform="translate(1035, 234)" opacity={0.85}>
+            {/* Curved wooden hull with upturned prow */}
+            <path d="M -52 -1 C -26 6, 24 6, 56 -5 C 49 6, 20 10, -2 10 C -26 10, -45 6, -52 -1 Z" />
+            {/* Traditional woven bamboo canopy */}
+            <path d="M -26 0 C -22 -18, 16 -18, 22 -1 Z" />
+            {/* Subtle helm roof */}
+            <path d="M 22 -1 L 34 -1 C 32 -8, 25 -9, 22 -1 Z" opacity={0.8} />
+            {/* Soft water reflection line */}
+            <ellipse cx="0" cy="14" rx="46" ry="1.4" opacity={0.35} />
+          </g>
 
-        {/* Gentle Ripple Lines of the Vembanad Backwaters */}
-        <path d="M -60 305 C 40 295, 140 315, 240 305 C 340 295, 440 315, 540 305" opacity="0.7" />
-        <path d="M -20 325 C 80 320, 180 335, 280 325 C 380 315, 480 330, 580 320" opacity="0.5" />
-        <path d="M 30 345 C 130 340, 230 350, 330 342 C 430 335, 530 345, 630 338" opacity="0.35" />
-      </svg>
-
-      {/* 4. Kasavu Gold Zari Geometric Border Accent (Top & Bottom Center Subtle Motifs) */}
-      <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-3 opacity-25 dark:opacity-20">
-        <div className="h-[1px] w-12 sm:w-24 bg-gradient-to-r from-transparent via-[#E3B957] to-transparent" />
-        <svg className="w-4 h-4 text-[#E3B957]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <polygon points="12,2 22,12 12,22 2,12" />
-          <polygon points="12,6 18,12 12,18 6,12" />
-          <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+          {/* Subtle calm backwater horizon shimmer lines */}
+          <rect x="440" y="246" width="180" height="1.2" rx="0.6" opacity={0.3} />
+          <rect x="760" y="251" width="140" height="1.2" rx="0.6" opacity={0.25} />
+          <rect x="520" y="255" width="95" height="1" rx="0.5" opacity={0.2} />
         </svg>
-        <div className="h-[1px] w-12 sm:w-24 bg-gradient-to-r from-transparent via-[#E3B957] to-transparent" />
       </div>
-
-      {/* 5. Traditional Temple Gable Arch Motif in Background Center */}
-      <svg
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] sm:w-[850px] h-[500px] text-primary/[0.04] dark:text-primary/[0.05] pointer-events-none"
-        viewBox="0 0 800 600"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        {/* Kerala Gable Apex Contours */}
-        <path d="M 400 80 L 150 280 L 200 280 L 400 130 L 600 280 L 650 280 Z" />
-        <path d="M 400 130 L 250 260 L 280 260 L 400 170 L 520 260 L 550 260 Z" />
-        <circle cx="400" cy="70" r="12" />
-        <path d="M 400 50 L 400 70" strokeWidth="2.5" />
-      </svg>
     </div>
   );
 }

@@ -23,6 +23,19 @@ export function getAllSchemes(): Scheme[] {
   return Object.values(SCHEMES);
 }
 
+/**
+ * Returns deduplicated list of lottery schemes keyed by canonical scheme code.
+ */
+export function getUniqueSchemes(): Scheme[] {
+  const seen = new Map<string, Scheme>();
+  for (const s of Object.values(SCHEMES)) {
+    if (!seen.has(s.code)) {
+      seen.set(s.code, s);
+    }
+  }
+  return Array.from(seen.values());
+}
+
 export function getSchemeThemeStyle(codeOrChar?: string): React.CSSProperties {
   const scheme = getScheme(codeOrChar);
   return {

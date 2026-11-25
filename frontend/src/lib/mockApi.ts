@@ -1,4 +1,13 @@
-import { Draw, LotteryApi, MatchResult, SavedTicket, UserSession, UserStats } from "@/types";
+import {
+  Draw,
+  DrawsSearchParams,
+  DrawsSearchResult,
+  LotteryApi,
+  MatchResult,
+  SavedTicket,
+  UserSession,
+  UserStats,
+} from "@/types";
 import { generateSeedTickets, SEED_DRAWS } from "./mockData";
 import { checkTicket } from "./checkTicket";
 
@@ -62,6 +71,39 @@ class MockLotteryApiService implements LotteryApi {
 
   async getDraws(): Promise<Draw[]> {
     return SEED_DRAWS;
+  }
+
+  async searchDraws(params: DrawsSearchParams): Promise<DrawsSearchResult> {
+    const limit = params.limit ?? 10;
+    const offset = params.offset ?? 0;
+    const q = (params.q || "").trim().toUpperCase();
+    const filtered = SEED_DRAWS.filter((d) => {
+      if (params.scheme && params.scheme !== "ALL" && d.schemeCode !== params.scheme) {
+        return false;
+      }
+      if (q) {
+        const firstNum = d.prizes
+          ? `${d.prizes.firstPrize.series}${d.prizes.firstPrize.number}`.toUpperCase()
+          : "";
+        if (
+          !d.id.toUpperCase().includes(q) &&
+          !d.drawDate.includes(q) &&
+          !d.schemeCode.toUpperCase().includes(q) &&
+          !firstNum.includes(q.replace(/\s+/g, ""))
+        ) {
+          return false;
+        }
+      }
+      return true;
+    });
+    const slice = filtered.slice(offset, offset + limit);
+    return {
+      draws: slice,
+      limit,
+      offset,
+      total: filtered.length,
+      hasMore: offset + slice.length < filtered.length,
+    };
   }
 
   async getDrawById(id: string): Promise<Draw | null> {

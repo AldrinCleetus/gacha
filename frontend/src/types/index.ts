@@ -105,6 +105,13 @@ export const DrawSchema = z.object({
       ),
     })
     .optional(),
+  headlinePrize: z
+    .object({
+      series: z.string(),
+      number: z.string(),
+      amount: z.number(),
+    })
+    .optional(),
   agencies: z.array(WinnerAgencySchema).optional(),
 });
 export type Draw = z.infer<typeof DrawSchema>;
@@ -154,6 +161,21 @@ export interface UserStats {
   historyTimeline: Array<{ date: string; cumulativeNet: number; cost: number; prize: number; ticket: string }>;
 }
 
+export interface DrawsSearchParams {
+  limit?: number;
+  offset?: number;
+  scheme?: string;
+  q?: string;
+}
+
+export interface DrawsSearchResult {
+  draws: Draw[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
 // LotteryApi interface
 export interface LotteryApi {
   getSession(): Promise<UserSession>;
@@ -161,6 +183,7 @@ export interface LotteryApi {
   signOut(): Promise<void>;
   getLatestDraw(schemeCode?: string): Promise<Draw>;
   getDraws(): Promise<Draw[]>;
+  searchDraws?(params: DrawsSearchParams): Promise<DrawsSearchResult>;
   getDrawById(id: string): Promise<Draw | null>;
   checkTicket?(ticket: string, drawId: string): Promise<MatchResult>;
   saveTicket(ticket: SavedTicket): Promise<boolean>;

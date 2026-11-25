@@ -181,6 +181,34 @@
         "border": "#ECCEEC",
         "text": "#7A1B8A"
       }
+    },
+    "DL": {
+      "code": "DL",
+      "name": "Dhanalekshmi",
+      "drawPrefix": "DL",
+      "price": 40,
+      "weekday": "Wednesday",
+      "firstPrize": "₹70,00,000",
+      "theme": {
+        "primary": "#8A5A1B",
+        "bg": "#F5ECE1",
+        "border": "#EAD7C4",
+        "text": "#8A5A1B"
+      }
+    },
+    "SK": {
+      "code": "SK",
+      "name": "Suvarna Keralam",
+      "drawPrefix": "SK",
+      "price": 40,
+      "weekday": "Friday",
+      "firstPrize": "₹70,00,000",
+      "theme": {
+        "primary": "#0A7063",
+        "bg": "#E4F4F1",
+        "border": "#CEECE6",
+        "text": "#0A7063"
+      }
     }
   }
 }

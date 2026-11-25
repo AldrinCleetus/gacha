@@ -121,6 +121,10 @@ describe("drawAdapter", () => {
       drawDate: "2026-11-21",
       status: "published",
       publishedAt: "2026-11-21T18:00:00Z",
+      firstPrize: {
+        ticket: "KA445566",
+        amount: 8000000,
+      },
     };
 
     const frontend = toFrontendDrawListItem(listItem);
@@ -130,5 +134,11 @@ describe("drawAdapter", () => {
     expect(frontend.drawNumber).toBe(777);
     expect(frontend.drawDate).toBe("2026-11-21");
     expect(frontend.isPublished).toBe(true);
+    expect(frontend.prizes).toBeUndefined();
+    expect(frontend.headlinePrize).toEqual({
+      series: "KA",
+      number: "445566",
+      amount: 8000000,
+    });
   });
 });

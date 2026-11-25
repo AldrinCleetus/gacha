@@ -67,7 +67,7 @@ describe("Public Read API (/v1)", () => {
     });
   });
 
-  it("GET /v1/draws returns list of published draws", async () => {
+  it("GET /v1/draws returns list of published draws with firstPrize and pagination", async () => {
     vi.spyOn(dbModule, "getDb").mockReturnValue(mockDb as unknown as dbModule.DbClient);
     mockDb.query.draws.findMany.mockResolvedValue([
       {
@@ -79,13 +79,15 @@ describe("Public Read API (/v1)", () => {
         publishedAt: new Date("2026-11-22T12:00:00Z"),
         fingerprint: "hash123",
         scheme: { name: "Samrudhi" },
+        tiers: [{ tier: "1", amount: 10000000 }],
+        entries: [{ tier: "1", entry: "SA123456" }],
       },
     ]);
 
     const app = buildServer();
     const res = await app.inject({
       method: "GET",
-      url: "/v1/draws?limit=10&scheme=SM",
+      url: "/v1/draws?limit=10&offset=0&scheme=SM&q=SM",
     });
 
     expect(res.statusCode).toBe(200);
@@ -95,7 +97,13 @@ describe("Public Read API (/v1)", () => {
     expect(body.draws).toHaveLength(1);
     expect(body.draws[0].drawCode).toBe("SM-82");
     expect(body.draws[0].schemeName).toBe("Samrudhi");
+    expect(body.draws[0].firstPrize).toEqual({
+      ticket: "SA123456",
+      amount: 10000000,
+    });
     expect(body.limit).toBe(10);
+    expect(body.offset).toBe(0);
+    expect(body.total).toBe(1);
     expect(body.hasMore).toBe(false);
   });
 

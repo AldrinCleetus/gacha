@@ -21,6 +21,10 @@ export const lotteryApi: LotteryApi = {
   signInWithGoogle: () => getLotteryApi().signInWithGoogle(),
   signOut: () => getLotteryApi().signOut(),
   getDraws: () => getLotteryApi().getDraws(),
+  searchDraws: (params) =>
+    getLotteryApi().searchDraws
+      ? getLotteryApi().searchDraws!(params)
+      : Promise.reject("searchDraws not supported"),
   getLatestDraw: (schemeCode?: string) => getLotteryApi().getLatestDraw(schemeCode),
   getDrawById: (id: string) => getLotteryApi().getDrawById(id),
   checkTicket: (ticket: string, drawId: string) =>

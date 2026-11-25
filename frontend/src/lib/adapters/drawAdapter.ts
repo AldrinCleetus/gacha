@@ -38,6 +38,18 @@ export interface BackendDrawListItem {
   status: string;
   publishedAt: string | null;
   fingerprint?: string | null;
+  firstPrize?: {
+    ticket: string;
+    amount: number;
+  } | null;
+}
+
+function splitTicketEntry(entry: string): { series: string; number: string } {
+  const clean = entry.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (clean.length >= 8) {
+    return { series: clean.slice(0, 2), number: clean.slice(2) };
+  }
+  return { series: "", number: clean };
 }
 
 /**
@@ -130,6 +142,13 @@ export function toFrontendDraw(backend: BackendFullDraw): Draw {
       thirdPrize,
       last4Prizes,
     },
+    headlinePrize: firstNumber
+      ? {
+          series: firstSeries,
+          number: firstNumber,
+          amount: tier1?.amount || 0,
+        }
+      : undefined,
     agencies,
   };
 }
@@ -139,11 +158,20 @@ export function toFrontendDraw(backend: BackendFullDraw): Draw {
  */
 export function toFrontendDrawListItem(item: BackendDrawListItem): Draw {
   const drawNum = parseInt(item.drawCode.replace(/\D/g, ""), 10) || 0;
+  const headline =
+    item.status === "published" && item.firstPrize?.ticket
+      ? {
+          ...splitTicketEntry(item.firstPrize.ticket),
+          amount: item.firstPrize.amount,
+        }
+      : undefined;
+
   return {
     id: item.drawCode,
     schemeCode: item.schemeCode,
     drawNumber: drawNum,
     drawDate: item.drawDate,
     isPublished: item.status === "published",
+    headlinePrize: headline,
   };
 }

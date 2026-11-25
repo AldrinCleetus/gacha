@@ -5,7 +5,7 @@ import { Draw, SavedTicket } from "@/types";
 import { getScheme } from "@/lib/schemes";
 import { formatINR } from "@/lib/checkTicket";
 import { useCheckStore } from "@/store/useCheckStore";
-import { ChevronDown, ChevronUp, ExternalLink, ArrowLeft, Trophy, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, ArrowLeft, Trophy, Copy, Check } from "lucide-react";
 
 export function ResultBreakdown() {
   const { drawId } = useParams<{ drawId: string }>();
@@ -15,6 +15,17 @@ export function ResultBreakdown() {
   const [userTicket, setUserTicket] = useState<SavedTicket | null>(null);
   const [showLowerTiers, setShowLowerTiers] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const handleCopy = (key: string, text: string) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+    setCopiedKey(key);
+    setTimeout(() => {
+      setCopiedKey((prev) => (prev === key ? null : prev));
+    }, 1500);
+  };
 
   useEffect(() => {
     if (!drawId) return;
@@ -81,16 +92,19 @@ export function ResultBreakdown() {
       </div>
 
       {/* Draw Header */}
-      <div className="flex items-center gap-3">
-        <div
-          className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-base shrink-0 shadow-soft"
-          style={{ backgroundColor: scheme.theme.bg, color: scheme.theme.text }}
-        >
-          {scheme.code}
-        </div>
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-main">
-            {scheme.name} Draw {draw.id}
+      <div className="p-4 sm:p-5 rounded-3xl bg-surface border border-border shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-3 select-text">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span
+              className="text-[11px] font-bold px-2.5 py-0.5 rounded-lg font-mono uppercase tracking-wider"
+              style={{ backgroundColor: scheme.theme.bg, color: scheme.theme.text }}
+            >
+              {draw.id}
+            </span>
+            <span className="text-[11px] font-mono text-muted">₹{scheme.price} per ticket</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-main">
+            {scheme.name}
           </h1>
           <p className="text-xs text-muted">
             {new Date(draw.drawDate).toLocaleDateString("en-IN", {
@@ -152,7 +166,7 @@ export function ResultBreakdown() {
 
       {/* Official Prize Tiers Breakdown */}
       {isPublished && prizes && (
-        <div className="space-y-4">
+        <div className="space-y-4 select-text">
           {/* 1st Prize Hero Card */}
           <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-border shadow-soft space-y-2">
             <div className="flex items-center justify-between">
@@ -162,8 +176,29 @@ export function ResultBreakdown() {
               </span>
               <span className="text-xs text-muted">Bumper</span>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-main font-mono tracking-wide">
-              {prizes.firstPrize.series} {prizes.firstPrize.number}
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-2xl sm:text-3xl font-black text-main font-mono tracking-wide">
+                {prizes.firstPrize.series} {prizes.firstPrize.number}
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  handleCopy("tier1", `${prizes.firstPrize.series} ${prizes.firstPrize.number}`)
+                }
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-input-box hover:bg-border/60 text-xs font-semibold text-muted hover:text-main transition-colors cursor-pointer shrink-0"
+              >
+                {copiedKey === "tier1" ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
@@ -182,11 +217,25 @@ export function ResultBreakdown() {
 
           {/* 2nd Prize */}
           {prizes.secondPrize && (
-            <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border shadow-soft flex items-center justify-between">
+            <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border shadow-soft flex items-center justify-between gap-3">
               <div>
                 <div className="text-xs font-semibold text-main">2nd Prize</div>
-                <div className="text-base font-bold text-main font-mono mt-0.5">
-                  {prizes.secondPrize.number}
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-base font-bold text-main font-mono">
+                    {prizes.secondPrize.number}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy("tier2", prizes.secondPrize!.number)}
+                    aria-label="Copy 2nd prize number"
+                    className="p-1 rounded-lg text-muted hover:text-main hover:bg-input-box transition-colors cursor-pointer"
+                  >
+                    {copiedKey === "tier2" ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
                 </div>
               </div>
               <div className="font-bold text-sm text-main font-mono">
@@ -200,9 +249,28 @@ export function ResultBreakdown() {
             <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border shadow-soft space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-main">3rd Prize</span>
-                <span className="font-bold text-sm text-main font-mono">
-                  {formatINR(prizes.thirdPrize.amount)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleCopy("tier3", prizes.thirdPrize!.numbers.join(", "))}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-muted hover:text-main hover:bg-input-box transition-colors cursor-pointer"
+                  >
+                    {copiedKey === "tier3" ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                        <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy all</span>
+                      </>
+                    )}
+                  </button>
+                  <span className="font-bold text-sm text-main font-mono">
+                    {formatINR(prizes.thirdPrize.amount)}
+                  </span>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2 pt-1">
                 {prizes.thirdPrize.numbers.map((num) => (
@@ -234,9 +302,30 @@ export function ResultBreakdown() {
                     <span className="text-xs font-semibold text-main">
                       {group.tier} (Last 4 digits)
                     </span>
-                    <span className="font-bold text-sm text-main font-mono">
-                      {formatINR(group.amount)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopy(`last4_${idx}`, group.numbers.join(" "))
+                        }
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-muted hover:text-main hover:bg-input-box transition-colors cursor-pointer"
+                      >
+                        {copiedKey === `last4_${idx}` ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                            <span>Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            <span>Copy all</span>
+                          </>
+                        )}
+                      </button>
+                      <span className="font-bold text-sm text-main font-mono">
+                        {formatINR(group.amount)}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2 pt-1">
                     {group.numbers.map((num) => {

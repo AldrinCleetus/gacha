@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { lotteryApi } from "@/lib/apiClient";
 import { SavedTicket } from "@/types";
-import { getScheme } from "@/lib/schemes";
+import { getScheme, getUniqueSchemes } from "@/lib/schemes";
 import { formatINR } from "@/lib/checkTicket";
 import { useCheckStore } from "@/store/useCheckStore";
 import { TicketGraphic } from "@/components/ticket/TicketGraphic";
@@ -121,10 +121,11 @@ export function MyTickets() {
             className="w-full py-1.5 px-3 text-xs rounded-xl bg-input-box border border-input-border text-main focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
           >
             <option value="ALL">All Schemes</option>
-            <option value="W">Win-Win (W)</option>
-            <option value="S">Sthree Sakthi (S)</option>
-            <option value="A">Akshaya (A)</option>
-            <option value="K">Karunya Plus (K)</option>
+            {getUniqueSchemes().map((s) => (
+              <option key={s.code} value={s.code}>
+                {s.name} ({s.code})
+              </option>
+            ))}
           </select>
         </div>
 

@@ -1,4 +1,13 @@
-import { Draw, LotteryApi, MatchResult, SavedTicket, UserSession, UserStats } from "@/types";
+import {
+  Draw,
+  DrawsSearchParams,
+  DrawsSearchResult,
+  LotteryApi,
+  MatchResult,
+  SavedTicket,
+  UserSession,
+  UserStats,
+} from "@/types";
 import { generateSeedTickets, SEED_DRAWS } from "./mockData";
 import { MOCK_USER } from "./mockApi";
 import { checkTicket } from "./checkTicket";
@@ -67,6 +76,63 @@ export class HttpLotteryApiService implements LotteryApi {
     } catch (err) {
       console.warn("Live API /draws unavailable, falling back to cached seed draws:", err);
       return SEED_DRAWS;
+    }
+  }
+
+  async searchDraws(params: DrawsSearchParams): Promise<DrawsSearchResult> {
+    const limit = params.limit ?? 10;
+    const offset = params.offset ?? 0;
+    try {
+      const qs = new URLSearchParams();
+      qs.set("limit", String(limit));
+      qs.set("offset", String(offset));
+      if (params.scheme && params.scheme !== "ALL") {
+        qs.set("scheme", params.scheme);
+      }
+      if (params.q && params.q.trim()) {
+        qs.set("q", params.q.trim());
+      }
+
+      const res = await fetch(`${this.baseUrl}/draws?${qs.toString()}`);
+      if (!res.ok) {
+        throw new Error(`Failed to search draws: ${res.statusText}`);
+      }
+      const data = (await res.json()) as {
+        draws: BackendDrawListItem[];
+        limit: number;
+        offset?: number;
+        total?: number;
+        hasMore: boolean;
+      };
+      const mapped = (data.draws || []).map(toFrontendDrawListItem);
+      const total = data.total ?? offset + mapped.length + (data.hasMore ? 1 : 0);
+      return {
+        draws: mapped,
+        limit: data.limit ?? limit,
+        offset: data.offset ?? offset,
+        total,
+        hasMore: Boolean(data.hasMore),
+      };
+    } catch (err) {
+      console.warn("Live API /draws search unavailable, filtering seed draws:", err);
+      const q = (params.q || "").trim().toUpperCase();
+      const filtered = SEED_DRAWS.filter((d) => {
+        if (params.scheme && params.scheme !== "ALL" && d.schemeCode !== params.scheme) {
+          return false;
+        }
+        if (q && !d.id.toUpperCase().includes(q) && !d.drawDate.includes(q)) {
+          return false;
+        }
+        return true;
+      });
+      const slice = filtered.slice(offset, offset + limit);
+      return {
+        draws: slice,
+        limit,
+        offset,
+        total: filtered.length,
+        hasMore: offset + slice.length < filtered.length,
+      };
     }
   }
 

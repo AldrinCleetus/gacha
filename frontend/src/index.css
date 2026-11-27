@@ -2,6 +2,7 @@
 @import "@fontsource/manrope/500.css";
 @import "@fontsource/manrope/600.css";
 @import "@fontsource/manrope/700.css";
+@import "@fontsource/manrope/800.css";
 @import "@fontsource/dm-mono/400.css";
 @import "@fontsource/dm-mono/500.css";
 
@@ -12,20 +13,33 @@
 :root {
   /* Light tokens from spec & screenshot */
   --color-page-bg: #EBF9F3;
+  --rgb-page-bg: 235 249 243;
   --color-page-gradient: linear-gradient(180deg, #EDFAF5 0%, #E6F7F0 100%);
   --color-surface: #FFFFFF;
+  --rgb-surface: 255 255 255;
   --color-border: #D8EFE4;
+  --rgb-border: 216 239 228;
   --color-input-box: #E3F4EC;
+  --rgb-input-box: 227 244 236;
   --color-input-border: #CFE9DD;
+  --rgb-input-border: 207 233 221;
   --color-primary: #05695A;
+  --rgb-primary: 5 105 90;
   --color-primary-hover: #045448;
+  --rgb-primary-hover: 4 84 72;
   --color-primary-subtle: rgba(5, 105, 90, 0.12);
   --color-text: #0F1F1A;
+  --rgb-text: 15 31 26;
   --color-muted: #5B6F68;
+  --rgb-muted: 91 111 104;
   --color-subtle: #89A098;
+  --rgb-subtle: 137 160 152;
   --color-gold-bg: #FDE7B0;
+  --rgb-gold-bg: 253 231 176;
   --color-gold-text: #8A5A00;
+  --rgb-gold-text: 138 90 0;
   --color-gold-border: #F7D78A;
+  --rgb-gold-border: 247 215 138;
 
   /* Default scheme colors */
   --scheme-bg: #E3F4EC;
@@ -36,20 +50,33 @@
 .dark {
   /* Dark tokens from spec */
   --color-page-bg: #0F1A1E;
+  --rgb-page-bg: 15 26 30;
   --color-page-gradient: linear-gradient(180deg, #101D22 0%, #0D171A 100%);
   --color-surface: #162429;
+  --rgb-surface: 22 36 41;
   --color-border: #1F333A;
+  --rgb-border: 31 51 58;
   --color-input-box: #1A2B31;
+  --rgb-input-box: 26 43 49;
   --color-input-border: #243D45;
+  --rgb-input-border: 36 61 69;
   --color-primary: #5CC4AB;
+  --rgb-primary: 92 196 171;
   --color-primary-hover: #4FB099;
+  --rgb-primary-hover: 79 176 153;
   --color-primary-subtle: rgba(92, 196, 171, 0.16);
   --color-text: #E6F2ED;
+  --rgb-text: 230 242 237;
   --color-muted: #87A097;
+  --rgb-muted: 135 160 151;
   --color-subtle: #5B756D;
+  --rgb-subtle: 91 117 109;
   --color-gold-bg: #382C13;
+  --rgb-gold-bg: 56 44 19;
   --color-gold-text: #E3B957;
+  --rgb-gold-text: 227 185 87;
   --color-gold-border: #52401B;
+  --rgb-gold-border: 82 64 27;
 
   --scheme-bg: #1A2B31;
   --scheme-border: #243D45;
@@ -74,9 +101,14 @@ body {
   }
 }
 
-/* Tabular digits styling */
-.font-mono, .tabular-nums {
-  font-family: 'DM Mono', monospace;
+/* Monospace serial codes & tabular alignment (prevent ugly faux-bold on DM Mono 500) */
+.font-mono {
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-synthesis: none;
+}
+
+.tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 

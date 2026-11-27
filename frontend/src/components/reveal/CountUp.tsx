@@ -41,7 +41,7 @@ export function CountUp({ end, duration = 1800, prefix = "₹", className = "" }
   }).format(current);
 
   return (
-    <span className={`tabular-nums font-mono ${className}`}>
+    <span className={`tabular-nums font-sans font-extrabold ${className}`}>
       {prefix}{formatted}
     </span>
   );

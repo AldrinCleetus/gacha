@@ -18,20 +18,88 @@ import {
   BackendDrawListItem,
 } from "./adapters/drawAdapter";
 
-const STORAGE_KEY_HISTORY = "gacha_saved_tickets_v2";
+const STORAGE_KEY_GUEST_HISTORY = "gacha_guest_tickets_v1";
 const STORAGE_KEY_SESSION = "gacha_user_session_v2";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/v1";
 
 export class HttpLotteryApiService implements LotteryApi {
   private baseUrl: string;
+  private tokenGetter: (() => Promise<string | null>) | null = null;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
   }
 
+  setTokenGetter(getter: (() => Promise<string | null>) | null): void {
+    this.tokenGetter = getter;
+  }
+
+  private async getAuthHeaders(): Promise<Record<string, string> | null> {
+    if (!this.tokenGetter) return null;
+    try {
+      const token = await this.tokenGetter();
+      if (!token) return null;
+      return { Authorization: `Bearer ${token}` };
+    } catch {
+      return null;
+    }
+  }
+
   private isBrowser(): boolean {
     return typeof window !== "undefined";
+  }
+
+  async syncProfile(profile: {
+    email?: string | null;
+    name?: string | null;
+    avatarUrl?: string | null;
+  }): Promise<void> {
+    const authHeaders = await this.getAuthHeaders();
+    if (!authHeaders) return;
+    await fetch(`${this.baseUrl}/me/profile`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders,
+      },
+      body: JSON.stringify(profile),
+    });
+  }
+
+  async syncGuestTicketsToCloud(): Promise<number> {
+    if (!this.isBrowser()) return 0;
+    const raw = localStorage.getItem(STORAGE_KEY_GUEST_HISTORY);
+    if (!raw) return 0;
+
+    let guestTickets: SavedTicket[] = [];
+    try {
+      guestTickets = JSON.parse(raw);
+    } catch {
+      return 0;
+    }
+    if (!Array.isArray(guestTickets) || guestTickets.length === 0) {
+      localStorage.removeItem(STORAGE_KEY_GUEST_HISTORY);
+      return 0;
+    }
+
+    const authHeaders = await this.getAuthHeaders();
+    if (!authHeaders) return 0;
+
+    const res = await fetch(`${this.baseUrl}/me/tickets/sync`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders,
+      },
+      body: JSON.stringify({ tickets: guestTickets }),
+    });
+    if (res.ok) {
+      localStorage.removeItem(STORAGE_KEY_GUEST_HISTORY);
+      const data = (await res.json()) as { syncedCount: number };
+      return data.syncedCount;
+    }
+    return 0;
   }
 
   async getSession(): Promise<UserSession> {
@@ -219,21 +287,47 @@ export class HttpLotteryApiService implements LotteryApi {
   }
 
   async getHistory(): Promise<SavedTicket[]> {
-    if (!this.isBrowser()) return generateSeedTickets();
-    const stored = localStorage.getItem(STORAGE_KEY_HISTORY);
-    if (!stored) {
-      const seeded = generateSeedTickets();
-      localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(seeded));
-      return seeded;
+    const authHeaders = await this.getAuthHeaders();
+    if (authHeaders) {
+      const res = await fetch(`${this.baseUrl}/me/tickets`, {
+        headers: authHeaders,
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { tickets: SavedTicket[] };
+        return data.tickets || [];
+      }
+      throw new Error(`Failed to fetch user tickets: ${res.statusText}`);
     }
+
+    if (!this.isBrowser()) return [];
+    const stored = localStorage.getItem(STORAGE_KEY_GUEST_HISTORY);
+    if (!stored) return [];
     try {
       return JSON.parse(stored);
     } catch {
-      return generateSeedTickets();
+      return [];
     }
   }
 
   async saveTicket(ticket: SavedTicket): Promise<boolean> {
+    const authHeaders = await this.getAuthHeaders();
+    if (authHeaders) {
+      const res = await fetch(`${this.baseUrl}/me/tickets`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        body: JSON.stringify(ticket),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { saved: boolean };
+        return data.saved;
+      }
+      return false;
+    }
+
     const history = await this.getHistory();
     const normalizedTicket = ticket.ticketString.replace(/\s+/g, "").toUpperCase();
     const isDuplicate = history.some(
@@ -248,18 +342,50 @@ export class HttpLotteryApiService implements LotteryApi {
 
     const updated = [ticket, ...history];
     if (this.isBrowser()) {
-      localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(updated));
+      localStorage.setItem(STORAGE_KEY_GUEST_HISTORY, JSON.stringify(updated));
     }
     return true;
   }
 
   async resetHistory(seedTickets?: SavedTicket[]): Promise<void> {
+    const authHeaders = await this.getAuthHeaders();
+    if (authHeaders) {
+      await fetch(`${this.baseUrl}/me/tickets`, {
+        method: "DELETE",
+        headers: authHeaders,
+      });
+      const toSeed = seedTickets !== undefined ? seedTickets : generateSeedTickets();
+      if (toSeed.length > 0) {
+        await fetch(`${this.baseUrl}/me/tickets/sync`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+          body: JSON.stringify({ tickets: toSeed }),
+        });
+      }
+      return;
+    }
+
     if (!this.isBrowser()) return;
     const list = seedTickets !== undefined ? seedTickets : generateSeedTickets();
-    localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(list));
+    localStorage.setItem(STORAGE_KEY_GUEST_HISTORY, JSON.stringify(list));
   }
 
   async getStats(): Promise<UserStats> {
+    const authHeaders = await this.getAuthHeaders();
+    if (authHeaders) {
+      const res = await fetch(`${this.baseUrl}/me/stats`, {
+        headers: authHeaders,
+        cache: "no-store",
+      });
+      if (res.ok) {
+        return (await res.json()) as UserStats;
+      }
+      throw new Error(`Failed to fetch user stats: ${res.statusText}`);
+    }
+
     const tickets = await this.getHistory();
     const totalTickets = tickets.length;
 

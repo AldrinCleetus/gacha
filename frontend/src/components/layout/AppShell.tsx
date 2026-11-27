@@ -4,6 +4,7 @@ import { Navbar } from "./Navbar";
 import { BottomNav } from "./BottomNav";
 import { DemoMenuModal } from "../demo/DemoMenuModal";
 import { ToastContainer, ToastMessage } from "../common/Toast";
+import { SignInNudgePopup } from "../auth/SignInNudgePopup";
 import { useSettingsStore } from "@/store/useSettingsStore";
 
 export function AppShell() {
@@ -46,15 +47,26 @@ export function AppShell() {
 
       <Navbar />
 
-      <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 py-6 pb-24 md:pb-12 flex flex-col">
+      <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 py-6 pb-8 flex flex-col">
         <Outlet />
       </main>
+
+      <footer className="w-full max-w-5xl mx-auto px-4 sm:px-6 pb-24 md:pb-10 pt-4 text-center space-y-1.5 text-xs text-subtle relative z-10">
+        <p className="font-medium text-muted">
+          Made with <span className="text-rose-500" aria-label="heart">♥</span> in Kochi · Built for everyday Kerala lottery players
+        </p>
+        <p className="text-[11px] max-w-lg mx-auto opacity-80">
+          cocolot is an independent result checker, not affiliated with Kerala State Lotteries. Always confirm prizes with official Gazette results.
+        </p>
+      </footer>
 
       <BottomNav />
 
       <DemoMenuModal />
 
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
+
+      <SignInNudgePopup />
     </div>
   );
 }

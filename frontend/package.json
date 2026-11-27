@@ -13,6 +13,7 @@
     "lint": "eslint src --ext .ts,.tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@clerk/react": "^6.19.6",
     "@fontsource/dm-mono": "^5.1.0",
     "@fontsource/manrope": "^5.1.0",
     "canvas-confetti": "^1.9.3",

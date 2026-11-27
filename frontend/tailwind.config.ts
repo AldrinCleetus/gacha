@@ -6,23 +6,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        page: "var(--color-page-bg)",
-        surface: "var(--color-surface)",
-        border: "var(--color-border)",
-        "input-box": "var(--color-input-box)",
-        "input-border": "var(--color-input-border)",
+        page: "rgb(var(--rgb-page-bg) / <alpha-value>)",
+        surface: "rgb(var(--rgb-surface) / <alpha-value>)",
+        border: "rgb(var(--rgb-border) / <alpha-value>)",
+        "input-box": "rgb(var(--rgb-input-box) / <alpha-value>)",
+        "input-border": "rgb(var(--rgb-input-border) / <alpha-value>)",
         primary: {
-          DEFAULT: "var(--color-primary)",
-          hover: "var(--color-primary-hover)",
+          DEFAULT: "rgb(var(--rgb-primary) / <alpha-value>)",
+          hover: "rgb(var(--rgb-primary-hover) / <alpha-value>)",
           subtle: "var(--color-primary-subtle)",
         },
-        main: "var(--color-text)",
-        muted: "var(--color-muted)",
-        subtle: "var(--color-subtle)",
+        main: "rgb(var(--rgb-text) / <alpha-value>)",
+        muted: "rgb(var(--rgb-muted) / <alpha-value>)",
+        subtle: "rgb(var(--rgb-subtle) / <alpha-value>)",
         gold: {
-          bg: "var(--color-gold-bg)",
-          text: "var(--color-gold-text)",
-          border: "var(--color-gold-border)",
+          bg: "rgb(var(--rgb-gold-bg) / <alpha-value>)",
+          text: "rgb(var(--rgb-gold-text) / <alpha-value>)",
+          border: "rgb(var(--rgb-gold-border) / <alpha-value>)",
         },
         scheme: {
           bg: "var(--scheme-bg)",

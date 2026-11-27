@@ -17,6 +17,9 @@ import { UserStats } from "@/types";
 import { formatINR } from "@/lib/checkTicket";
 import { getScheme } from "@/lib/schemes";
 import { useDemoStore } from "@/store/useDemoStore";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useGoogleSignIn } from "@/lib/auth/useGoogleSignIn";
+import { usePageMeta } from "@/lib/usePageMeta";
 import { CountUp } from "@/components/reveal/CountUp";
 import {
   TrendingUp,
@@ -31,33 +34,55 @@ import {
 } from "lucide-react";
 
 export function Dashboard() {
-  const { mockNewUser, setMockNewUser } = useDemoStore();
+  const { mockNewUser, setMockNewUser, useMockApi } = useDemoStore();
+  const { session, isLoaded, syncVersion } = useAuthStore();
+  const { signInWithGoogle, loading: googleLoading } = useGoogleSignIn();
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<"30D" | "6M" | "ALL">("ALL");
 
+  usePageMeta({
+    title: "Dashboard & Prize Ledger — cocolot",
+    description: "Track your total spent, total won, win rate, and net return across Kerala State Lottery draws on cocolot.",
+    path: "/dashboard",
+    noIndex: true,
+  });
+
   useEffect(() => {
-    lotteryApi.getStats().then((data) => {
-      if (mockNewUser) {
-        setStats({
-          totalTickets: 0,
-          totalSpent: 0,
-          totalWon: 0,
-          netProfitLoss: 0,
-          winRate: 0,
-          bestWin: 0,
-          longestDrySpell: 0,
-          mostCheckedScheme: "None",
-          schemeBreakdown: {},
-          monthlyBreakdown: [],
-          historyTimeline: [],
-        });
-      } else {
-        setStats(data);
-      }
-      setLoading(false);
-    });
-  }, [mockNewUser]);
+    if (!isLoaded) return;
+    let cancelled = false;
+    setLoading(true);
+    lotteryApi
+      .getStats()
+      .then((data) => {
+        if (cancelled) return;
+        // Only honor demo mockNewUser flag when explicitly in Mock API mode
+        if (useMockApi && mockNewUser) {
+          setStats({
+            totalTickets: 0,
+            totalSpent: 0,
+            totalWon: 0,
+            netProfitLoss: 0,
+            winRate: 0,
+            bestWin: 0,
+            longestDrySpell: 0,
+            mostCheckedScheme: "None",
+            schemeBreakdown: {},
+            monthlyBreakdown: [],
+            historyTimeline: [],
+          });
+        } else {
+          setStats(data);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [useMockApi, mockNewUser, isLoaded, session.isAuthenticated, session.user?.id, syncVersion]);
 
   const filteredTimeline = useMemo(() => {
     if (!stats?.historyTimeline) return [];
@@ -99,6 +124,16 @@ export function Dashboard() {
             <span>Check a lottery</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
+          {!session.isAuthenticated && (
+            <button
+              type="button"
+              onClick={() => signInWithGoogle("/dashboard")}
+              disabled={googleLoading}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-surface border border-border text-xs font-semibold text-main hover:bg-input-box flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+            >
+              <span>{googleLoading ? "Connecting…" : "Sign in with Google"}</span>
+            </button>
+          )}
           <button
             onClick={async () => {
               await lotteryApi.resetHistory();
@@ -147,7 +182,7 @@ export function Dashboard() {
                 : "text-main"
             }`}
           >
-            {stats.netProfitLoss < 0 ? "- ₹" : stats.netProfitLoss > 0 ? "+ ₹" : "₹"}
+            {stats.netProfitLoss < 0 ? "- " : stats.netProfitLoss > 0 ? "+ " : ""}
             <CountUp end={Math.abs(stats.netProfitLoss)} duration={1800} />
           </div>
 
@@ -170,7 +205,7 @@ export function Dashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="p-4 rounded-2xl bg-surface border border-border shadow-soft">
           <span className="text-[11px] font-semibold text-muted block">Total Spent</span>
-          <div className="text-lg sm:text-xl font-bold text-main mt-0.5 font-mono">
+          <div className="text-lg sm:text-xl font-bold text-main mt-0.5 font-sans tabular-nums">
             {formatINR(stats.totalSpent)}
           </div>
           <span className="text-[10px] text-subtle">Based on checked tickets</span>
@@ -178,7 +213,7 @@ export function Dashboard() {
 
         <div className="p-4 rounded-2xl bg-surface border border-border shadow-soft">
           <span className="text-[11px] font-semibold text-muted block">Total Won</span>
-          <div className="text-lg sm:text-xl font-bold text-gold-text mt-0.5 font-mono">
+          <div className="text-lg sm:text-xl font-bold text-gold-text mt-0.5 font-sans tabular-nums">
             {formatINR(stats.totalWon)}
           </div>
           <span className="text-[10px] text-subtle">Prize matches</span>
@@ -186,7 +221,7 @@ export function Dashboard() {
 
         <div className="p-4 rounded-2xl bg-surface border border-border shadow-soft">
           <span className="text-[11px] font-semibold text-muted block">Win Rate</span>
-          <div className="text-lg sm:text-xl font-bold text-main mt-0.5 font-mono">
+          <div className="text-lg sm:text-xl font-bold text-main mt-0.5 font-sans tabular-nums">
             {stats.winRate}%
           </div>
           <span className="text-[10px] text-subtle">Frequency of prize hits</span>
@@ -194,10 +229,12 @@ export function Dashboard() {
 
         <div className="p-4 rounded-2xl bg-surface border border-border shadow-soft">
           <span className="text-[11px] font-semibold text-muted block">Lotteries Checked</span>
-          <div className="text-lg sm:text-xl font-bold text-main mt-0.5 font-mono">
+          <div className="text-lg sm:text-xl font-bold text-main mt-0.5 font-sans tabular-nums">
             {stats.totalTickets}
           </div>
-          <span className="text-[10px] text-subtle">Saved locally</span>
+          <span className="text-[10px] text-subtle">
+            {session.isAuthenticated ? "Synced to account" : "Saved locally"}
+          </span>
         </div>
       </div>
 
@@ -310,8 +347,8 @@ export function Dashboard() {
                 dataKey="cumulativeNet"
                 stroke="var(--color-primary)"
                 strokeWidth={2}
-                dot={{ r: 2, fill: "var(--color-primary)" }}
-                activeDot={{ r: 4 }}
+                dot={{ r: filteredTimeline.length <= 2 ? 5 : 2, fill: "var(--color-primary)" }}
+                activeDot={{ r: 6 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -388,11 +425,11 @@ export function Dashboard() {
                 </div>
 
                 <div className="text-right">
-                  <div className="text-xs font-bold text-main font-mono">
+                  <div className="text-xs font-bold text-main font-sans tabular-nums">
                     Won: {formatINR(item.won)}
                   </div>
                   <div
-                    className={`text-[11px] font-semibold font-mono ${
+                    className={`text-[11px] font-semibold font-sans tabular-nums ${
                       isPos ? "text-primary" : "text-muted"
                     }`}
                   >

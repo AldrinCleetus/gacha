@@ -4,4 +4,5 @@ export * from "./prizes.js";
 export * from "./observations.js";
 export * from "./agencies.js";
 export * from "./events.js";
+export * from "./users.js";
 export * from "./relations.js";

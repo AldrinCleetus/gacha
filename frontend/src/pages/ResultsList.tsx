@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { lotteryApi } from "@/lib/apiClient";
 import { Draw } from "@/types";
 import { getScheme, getUniqueSchemes } from "@/lib/schemes";
+import { usePageMeta } from "@/lib/usePageMeta";
 import {
   Search,
   Calendar,
@@ -44,6 +45,13 @@ export function ResultsList() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const uniqueSchemes = getUniqueSchemes();
+
+  usePageMeta({
+    title: "Recent Kerala Lottery Results — cocolot",
+    description:
+      "Browse official published Kerala State Lottery draw results across Bhagyathara, Samrudhi, Karunya, Sthree Sakthi, Suvarna Keralam, Dhanalekshmi, and Karunya Plus.",
+    path: "/results",
+  });
 
   // Debounce backend search query
   useEffect(() => {
@@ -265,7 +273,7 @@ export function ResultsList() {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center px-3 py-1 rounded-xl bg-input-box border border-input-border font-mono font-extrabold text-sm sm:text-base tracking-widest text-main">
+                            <span className="inline-flex items-center px-3 py-1 rounded-xl bg-input-box border border-input-border font-mono font-medium text-sm sm:text-base tracking-widest text-main">
                               {formattedTicket}
                             </span>
 

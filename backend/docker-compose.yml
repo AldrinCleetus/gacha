@@ -50,6 +50,8 @@ services:
       RAW_STORAGE_DRIVER: local
       RAW_STORAGE_PATH: /app/data/raw
       ADMIN_TOKEN: ${ADMIN_TOKEN:-dev_admin_token}
+      CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY:-}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
       TZ: UTC
     ports:
       - "3001:3001"
@@ -79,6 +81,8 @@ services:
       RAW_STORAGE_DRIVER: local
       RAW_STORAGE_PATH: /app/data/raw
       ADMIN_TOKEN: ${ADMIN_TOKEN:-dev_admin_token}
+      CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY:-}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
       TZ: UTC
     volumes:
       - ./packages/shared/src:/app/packages/shared/src

@@ -1,46 +1,40 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { UserSession } from "@/types";
-
-const DEFAULT_USER: UserSession = {
-  user: {
-    id: "usr_gacha_demo",
-    name: "Rahul Nair",
-    email: "rahul@example.com",
-    avatarUrl: "",
-  },
-  isAuthenticated: true,
-};
 
 interface AuthState {
   session: UserSession;
+  isLoaded: boolean;
+  syncVersion: number;
   login: (user?: UserSession["user"]) => void;
   logout: () => void;
   setSession: (session: UserSession) => void;
+  setLoaded: (loaded: boolean) => void;
+  bumpSyncVersion: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      session: DEFAULT_USER,
-      login: (customUser) =>
-        set({
-          session: {
-            user: customUser || DEFAULT_USER.user,
-            isAuthenticated: true,
-          },
-        }),
-      logout: () =>
-        set({
-          session: {
-            user: null,
-            isAuthenticated: false,
-          },
-        }),
-      setSession: (session) => set({ session }),
+const EMPTY_SESSION: UserSession = {
+  user: null,
+  isAuthenticated: false,
+};
+
+export const useAuthStore = create<AuthState>((set) => ({
+  session: EMPTY_SESSION,
+  isLoaded: false,
+  syncVersion: 0,
+  login: (customUser) =>
+    set({
+      session: {
+        user: customUser || null,
+        isAuthenticated: Boolean(customUser),
+      },
+      isLoaded: true,
     }),
-    {
-      name: "gacha_auth_session",
-    }
-  )
-);
+  logout: () =>
+    set({
+      session: EMPTY_SESSION,
+      isLoaded: true,
+    }),
+  setSession: (session) => set({ session }),
+  setLoaded: (isLoaded) => set({ isLoaded }),
+  bumpSyncVersion: () => set((s) => ({ syncVersion: s.syncVersion + 1 })),
+}));

@@ -1,0 +1,31 @@
+{
+  "name": "cocolot — Kerala Lottery Result Checker",
+  "short_name": "cocolot",
+  "description": "Instant Kerala State Lottery result checker, live 3:00 PM draw schedules, and personal prize ledger. Made in Kochi.",
+  "start_url": "/check",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#05695A",
+  "background_color": "#EBF9F3",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

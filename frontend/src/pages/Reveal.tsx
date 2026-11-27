@@ -250,20 +250,22 @@ export function Reveal() {
             return;
           }
 
-          setActiveJudgeIndex(currentIdx);
-          const isMatch = matches.includes(currentIdx);
+          // Snapshot index in a block-scoped const so React's state updater doesn't read the post-increment value.
+          const idx = currentIdx;
+          setActiveJudgeIndex(idx);
+          const isMatch = matches.includes(idx);
 
           if (isMatch) {
-            setLockedIndices((prev) => [...prev, currentIdx]);
+            setLockedIndices((prev) => (prev.includes(idx) ? prev : [...prev, idx]));
             triggerHaptic(30);
-            if (soundEnabled) sound.playCharLock(currentIdx, true);
+            if (soundEnabled) sound.playCharLock(idx, true);
           } else {
-            if (soundEnabled) sound.playCharLock(currentIdx, false);
+            if (soundEnabled) sound.playCharLock(idx, false);
           }
 
-          const consecutiveMatches = matches.filter((i) => i <= currentIdx).length;
+          const consecutiveMatches = matches.filter((i) => i <= idx).length;
           let delay = 300 + consecutiveMatches * 60;
-          if (currentIdx === 6) {
+          if (idx === 6) {
             delay += 200; // gentle anticipation before the 8th character
           }
 
@@ -304,7 +306,7 @@ export function Reveal() {
       ctx.fillRect(0, 0, 600, 340);
       ctx.fillStyle = "#05695A";
       ctx.font = "bold 28px Manrope, sans-serif";
-      ctx.fillText("gacha", 40, 50);
+      ctx.fillText("cocolot", 40, 50);
 
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(40, 80, 520, 200);
@@ -322,7 +324,7 @@ export function Reveal() {
       ctx.fillText(result.formattedAmount, 60, 230);
 
       const a = document.createElement("a");
-      a.download = `gacha-${effectiveTicket.replace(/\s+/g, "")}.png`;
+      a.download = `cocolot-${effectiveTicket.replace(/\s+/g, "")}.png`;
       a.href = canvas.toDataURL();
       a.click();
     }

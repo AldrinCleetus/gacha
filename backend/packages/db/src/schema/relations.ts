@@ -5,6 +5,7 @@ import { prizeTiers, prizeEntries } from "./prizes.js";
 import { sourceObservations } from "./observations.js";
 import { winnerAgencies } from "./agencies.js";
 import { ingestEvents } from "./events.js";
+import { users, userTickets } from "./users.js";
 
 export const schemesRelations = relations(schemes, ({ many }) => ({
   series: many(schemeSeries),
@@ -62,5 +63,16 @@ export const ingestEventsRelations = relations(ingestEvents, ({ one }) => ({
   draw: one(draws, {
     fields: [ingestEvents.drawId],
     references: [draws.id],
+  }),
+}));
+
+export const usersRelations = relations(users, ({ many }) => ({
+  tickets: many(userTickets),
+}));
+
+export const userTicketsRelations = relations(userTickets, ({ one }) => ({
+  user: one(users, {
+    fields: [userTickets.userId],
+    references: [users.clerkId],
   }),
 }));

@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Allow: /check
+Allow: /results
+Disallow: /login
+Disallow: /sso-callback
+Disallow: /settings

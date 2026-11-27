@@ -5,7 +5,8 @@ import { Draw, SavedTicket } from "@/types";
 import { getScheme } from "@/lib/schemes";
 import { formatINR } from "@/lib/checkTicket";
 import { useCheckStore } from "@/store/useCheckStore";
-import { ChevronDown, ChevronUp, ExternalLink, ArrowLeft, Trophy, Copy, Check } from "lucide-react";
+import { usePageMeta } from "@/lib/usePageMeta";
+import { ChevronDown, ChevronUp, ExternalLink, ArrowLeft, Trophy, Copy, Check, Share2 } from "lucide-react";
 
 export function ResultBreakdown() {
   const { drawId } = useParams<{ drawId: string }>();
@@ -16,6 +17,19 @@ export function ResultBreakdown() {
   const [showLowerTiers, setShowLowerTiers] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const metaScheme = draw ? getScheme(draw.schemeCode).name : "Kerala Lottery";
+  usePageMeta({
+    title: draw
+      ? `${metaScheme} ${draw.id} Results (${draw.drawDate}) — cocolot`
+      : drawId
+      ? `Draw ${drawId} Results — cocolot`
+      : "Draw Breakdown — cocolot",
+    description: draw
+      ? `Full winning numbers and prize breakdown for Kerala State Lottery ${metaScheme} ${draw.id} (${draw.drawDate}) on cocolot.`
+      : "Full Kerala State Lottery draw winning numbers and prize tier breakdown on cocolot.",
+    path: drawId ? `/results/${drawId}` : "/results",
+  });
 
   const handleCopy = (key: string, text: string) => {
     if (navigator.clipboard) {
@@ -29,19 +43,37 @@ export function ResultBreakdown() {
 
   useEffect(() => {
     if (!drawId) return;
+    let cancelled = false;
 
     setLoading(true);
-    lotteryApi.getDrawById(drawId).then((d) => {
-      setDraw(d);
-      setLoading(false);
-    });
+    lotteryApi
+      .getDrawById(drawId)
+      .then((d) => {
+        if (!cancelled) {
+          setDraw(d);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-    lotteryApi.getHistory().then((history) => {
-      const match = history.find((t) => t.drawId === drawId);
-      if (match) {
-        setUserTicket(match);
-      }
-    });
+    lotteryApi
+      .getHistory()
+      .then((history) => {
+        if (cancelled) return;
+        const match = history.find(
+          (t) => t.drawId.toUpperCase() === drawId.toUpperCase()
+        );
+        if (match) {
+          setUserTicket(match);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
   }, [drawId]);
 
   if (loading) {
@@ -88,7 +120,26 @@ export function ResultBreakdown() {
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>All draws</span>
         </Link>
-        <span className="text-xs text-muted font-mono">{draw.id}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted font-mono">{draw.id}</span>
+          <button
+            type="button"
+            onClick={() => handleCopy("shareUrl", window.location.href)}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-surface border border-border hover:bg-input-box text-[11px] font-semibold text-muted hover:text-main transition-colors cursor-pointer"
+          >
+            {copiedKey === "shareUrl" ? (
+              <>
+                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                <span>Link copied</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-3 h-3" />
+                <span>Share</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Draw Header */}
@@ -177,7 +228,7 @@ export function ResultBreakdown() {
               <span className="text-xs text-muted">Bumper</span>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <div className="text-2xl sm:text-3xl font-black text-main font-mono tracking-wide">
+              <div className="text-2xl sm:text-3xl font-medium text-main font-mono tracking-wider">
                 {prizes.firstPrize.series} {prizes.firstPrize.number}
               </div>
               <button
@@ -210,7 +261,7 @@ export function ResultBreakdown() {
                 All remaining series with number {prizes.firstPrize.number}
               </div>
             </div>
-            <div className="font-bold text-sm text-main font-mono">
+            <div className="font-bold text-sm text-main font-sans tabular-nums">
               {formatINR(prizes.consolationPrize.amount)}
             </div>
           </div>
@@ -221,7 +272,7 @@ export function ResultBreakdown() {
               <div>
                 <div className="text-xs font-semibold text-main">2nd Prize</div>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-base font-bold text-main font-mono">
+                  <span className="text-base font-medium tracking-wider text-main font-mono">
                     {prizes.secondPrize.number}
                   </span>
                   <button
@@ -238,7 +289,7 @@ export function ResultBreakdown() {
                   </button>
                 </div>
               </div>
-              <div className="font-bold text-sm text-main font-mono">
+              <div className="font-bold text-sm text-main font-sans tabular-nums">
                 {formatINR(prizes.secondPrize.amount)}
               </div>
             </div>
@@ -267,7 +318,7 @@ export function ResultBreakdown() {
                       </>
                     )}
                   </button>
-                  <span className="font-bold text-sm text-main font-mono">
+                  <span className="font-bold text-sm text-main font-sans tabular-nums">
                     {formatINR(prizes.thirdPrize.amount)}
                   </span>
                 </div>
@@ -278,7 +329,7 @@ export function ResultBreakdown() {
                     key={num}
                     className={`font-mono text-xs px-2.5 py-1 rounded-xl border ${
                       userDigits === num
-                        ? "bg-gold-bg text-gold-text border-gold-border font-bold"
+                        ? "bg-gold-bg text-gold-text border-gold-border font-medium"
                         : "bg-input-box border-input-border text-main"
                     }`}
                   >
@@ -322,7 +373,7 @@ export function ResultBreakdown() {
                           </>
                         )}
                       </button>
-                      <span className="font-bold text-sm text-main font-mono">
+                      <span className="font-bold text-sm text-main font-sans tabular-nums">
                         {formatINR(group.amount)}
                       </span>
                     </div>
@@ -335,7 +386,7 @@ export function ResultBreakdown() {
                           key={num}
                           className={`font-mono text-xs px-2.5 py-1 rounded-xl border transition-colors ${
                             isMatch
-                              ? "bg-gold-bg text-gold-text border-gold-border font-bold"
+                              ? "bg-gold-bg text-gold-text border-gold-border font-medium"
                               : "bg-input-box border-input-border text-main"
                           }`}
                         >

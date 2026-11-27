@@ -5,6 +5,7 @@ import etag from "@fastify/etag";
 import multipart from "@fastify/multipart";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
+import { clerkPlugin } from "@clerk/fastify";
 import {
   serializerCompiler,
   validatorCompiler,
@@ -39,6 +40,11 @@ export function buildServer(): FastifyInstance {
   app.register(cors, {
     origin: true,
   });
+
+  // Clerk JWT authentication middleware (when keys are configured)
+  if (process.env.CLERK_SECRET_KEY && process.env.CLERK_PUBLISHABLE_KEY) {
+    app.register(clerkPlugin);
+  }
 
   // Per-IP rate limiting (120 req/minute, localhost allowlisted)
   app.register(rateLimit, {
@@ -84,6 +90,7 @@ export function buildServer(): FastifyInstance {
         { name: "schemes", description: "Lottery schemes and series information" },
         { name: "draws", description: "Lottery draws and prize tiers" },
         { name: "tickets", description: "Ticket checking and prize matching" },
+        { name: "me", description: "Authenticated user profile, ticket history, and stats" },
       ],
     },
     transform: jsonSchemaTransform,

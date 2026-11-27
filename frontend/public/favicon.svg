@@ -1,0 +1,24 @@
+<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#077E6D" />
+      <stop offset="100%" stop-color="#045247" />
+    </linearGradient>
+    <linearGradient id="gold" x1="28" y1="12" x2="46" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FDE7B0" />
+      <stop offset="100%" stop-color="#E3A93B" />
+    </linearGradient>
+    <mask id="ticket-cut">
+      <rect x="4" y="4" width="56" height="56" rx="16" fill="#FFFFFF" />
+      <circle cx="4" cy="32" r="4" fill="#000000" />
+      <circle cx="60" cy="32" r="4" fill="#000000" />
+    </mask>
+  </defs>
+  <g mask="url(#ticket-cut)">
+    <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#bg)" />
+    <rect x="6.5" y="6.5" width="51" height="51" rx="13.5" stroke="#5CC4AB" stroke-opacity="0.28" stroke-width="1.5" />
+  </g>
+  <circle cx="37" cy="22" r="8.5" fill="url(#gold)" />
+  <path d="M15 30.5C15 29.2 16.3 28.4 17.5 28.9L47.2 41.2C48.3 41.7 48.8 43 48.2 44.1C44.9 50.2 38.4 54 31 54C20.5 54 15 45.8 15 34.5V30.5Z" fill="#FFFFFF" />
+  <path d="M17.5 29.2L46.5 41.2" stroke="#A7E3D2" stroke-width="2.5" stroke-linecap="round" />
+</svg>

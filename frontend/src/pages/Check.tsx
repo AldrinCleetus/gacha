@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useNavigate, useLocation, useSearchParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import { SegmentedInput } from "@/components/check/SegmentedInput";
@@ -11,16 +11,16 @@ import { parseTicket } from "@/lib/parser";
 import { checkTicket, formatINR } from "@/lib/checkTicket";
 import { sound } from "@/lib/sound";
 import { lotteryApi } from "@/lib/apiClient";
-import { Draw, SavedTicket, MatchResult } from "@/types";
+import { Draw, MatchResult } from "@/types";
 import { useCheckStore } from "@/store/useCheckStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useDemoStore } from "@/store/useDemoStore";
-import { getScheme } from "@/lib/schemes";
+import { getScheme, getUpcomingDraws } from "@/lib/schemes";
+import { usePageMeta } from "@/lib/usePageMeta";
 import {
   ChevronDown,
   ArrowDown,
   ArrowRight,
-  Ticket as TicketIcon,
   Calendar,
   ChevronRight,
   Trophy,
@@ -32,6 +32,22 @@ import {
   RefreshCw,
 } from "lucide-react";
 
+function formatCompactPrize(input: number | string): string {
+  const num =
+    typeof input === "number"
+      ? input
+      : parseInt(String(input).replace(/[^0-9]/g, ""), 10) || 0;
+  if (num >= 10000000) {
+    const cr = num / 10000000;
+    return `₹${Number.isInteger(cr) ? cr : cr.toFixed(1)} Cr`;
+  }
+  if (num >= 100000) {
+    const lakhs = num / 100000;
+    return `₹${Number.isInteger(lakhs) ? lakhs : lakhs.toFixed(0)} Lakhs`;
+  }
+  return formatINR(num);
+}
+
 type RevealPhase = "MORPH" | "SCAN" | "JUDGEMENT" | "PAUSE" | "VERDICT";
 
 interface CheckProps {
@@ -41,6 +57,7 @@ interface CheckProps {
 export function Check({ initialChecking = false }: CheckProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   const {
     characters,
@@ -65,7 +82,6 @@ export function Check({ initialChecking = false }: CheckProps) {
 
   const [draws, setDraws] = useState<Draw[]>([]);
   const [fullActiveDraw, setFullActiveDraw] = useState<Draw | null>(null);
-  const [recentTickets, setRecentTickets] = useState<SavedTicket[]>([]);
 
   // Checking & Reveal state machine
   const isDirectRevealRoute = location.pathname === "/check/reveal" || initialChecking;
@@ -82,6 +98,13 @@ export function Check({ initialChecking = false }: CheckProps) {
   const parsed = parseTicket(characters.join(""));
   const isComplete = parsed.isValid;
 
+  usePageMeta({
+    title: "cocolot — Kerala Lottery Result Checker & Prize Ledger",
+    description:
+      "Check Kerala State Lottery results in seconds, explore upcoming 3:00 PM weekly draws, and track your personal prize ledger.",
+    path: "/check",
+  });
+
   // Haptics helper
   const triggerHaptic = useCallback(
     (pattern: number | number[]) => {
@@ -96,20 +119,39 @@ export function Check({ initialChecking = false }: CheckProps) {
     [hapticsEnabled]
   );
 
-  // Load draws & history
+  // Load draws & support shareable ?draw= / ?ticket= URL params
   useEffect(() => {
+    const paramTicket = searchParams.get("ticket");
+    if (paramTicket) {
+      const p = parseTicket(paramTicket);
+      if (p.characters.some(Boolean)) {
+        setCharacters([...p.characters]);
+      }
+    }
+
+    const paramDraw = searchParams.get("draw");
     lotteryApi.getDraws().then((d) => {
       setDraws(d);
+      if (paramDraw) {
+        const matched = d.find((item) => item.id.toUpperCase() === paramDraw.toUpperCase());
+        if (matched) {
+          setSelectedDrawId(matched.id);
+          return;
+        }
+        setSelectedDrawId(paramDraw.toUpperCase());
+        return;
+      }
       if (d.length > 0 && !selectedDrawId) {
         const latestPublished = d.find((draw) => draw.isPublished) || d[0];
         setSelectedDrawId(latestPublished.id);
       }
     });
+  }, [selectedDrawId, setSelectedDrawId, searchParams, setCharacters]);
 
-    lotteryApi.getHistory().then((history) => {
-      setRecentTickets(history.slice(0, 5));
-    });
-  }, [selectedDrawId, setSelectedDrawId]);
+  const upcomingDraws = useMemo(() => {
+    const publishedDates = draws.filter((d) => d.isPublished).map((d) => d.drawDate);
+    return getUpcomingDraws(4, publishedDates);
+  }, [draws]);
 
   // Fetch full draw details (including prize tiers) whenever selectedDrawId changes
   useEffect(() => {
@@ -152,7 +194,15 @@ export function Check({ initialChecking = false }: CheckProps) {
       ? fullActiveDraw
       : baseDraw;
 
-  // Handle browser back button (popstate)
+  // Return to input state when navigating to /check (e.g. clicking logo) or browser back
+  useEffect(() => {
+    if (location.pathname === "/check" && !initialChecking && isChecking) {
+      setIsChecking(false);
+      setRevealPhase("MORPH");
+      setEvalResult(null);
+    }
+  }, [location.pathname, location.key, initialChecking]);
+
   useEffect(() => {
     const handlePopState = () => {
       if (location.pathname === "/check" && isChecking) {
@@ -331,20 +381,22 @@ export function Check({ initialChecking = false }: CheckProps) {
             return;
           }
 
-          setActiveJudgeIndex(currentIdx);
-          const isMatch = matches.includes(currentIdx);
+          // Snapshot index in a block-scoped const so React's state updater doesn't read the post-increment value.
+          const idx = currentIdx;
+          setActiveJudgeIndex(idx);
+          const isMatch = matches.includes(idx);
 
           if (isMatch) {
-            setLockedIndices((prev) => [...prev, currentIdx]);
+            setLockedIndices((prev) => (prev.includes(idx) ? prev : [...prev, idx]));
             triggerHaptic(30);
-            if (soundEnabled) sound.playCharLock(currentIdx, true);
+            if (soundEnabled) sound.playCharLock(idx, true);
           } else {
-            if (soundEnabled) sound.playCharLock(currentIdx, false);
+            if (soundEnabled) sound.playCharLock(idx, false);
           }
 
-          const consecutiveMatches = matches.filter((i) => i <= currentIdx).length;
+          const consecutiveMatches = matches.filter((i) => i <= idx).length;
           let delay = 280 + consecutiveMatches * 55;
-          if (currentIdx === 6) delay += 180; // slight anticipation before last box
+          if (idx === 6) delay += 180; // slight anticipation before last box
 
           currentIdx++;
           setTimeout(judgeNext, delay);
@@ -418,8 +470,9 @@ export function Check({ initialChecking = false }: CheckProps) {
 
     setLastResult(result, false);
 
-    // Save ticket uniquely to mock history
-    lotteryApi.saveTicket({
+    // Save ticket uniquely to Postgres (when signed in) or guest storage
+    const schemePrice = getScheme(targetDraw.schemeCode || parsed.schemeCode).price || 40;
+    await lotteryApi.saveTicket({
       id: `tkt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       ticketString: parsed.fullTicketString,
       schemeCode: targetDraw.schemeCode || parsed.schemeCode,
@@ -428,13 +481,10 @@ export function Check({ initialChecking = false }: CheckProps) {
       drawId: targetDraw.id,
       drawDate: targetDraw.drawDate,
       checkedAt: new Date().toISOString(),
-      cost: 40,
+      cost: schemePrice,
       wonAmount: result.amount,
       result,
     });
-
-    // Refresh history
-    lotteryApi.getHistory().then((h) => setRecentTickets(h.slice(0, 5)));
 
     // Trigger in-place zoom-out morph and reveal
     startCheckingSequence(result);
@@ -479,7 +529,7 @@ export function Check({ initialChecking = false }: CheckProps) {
       ctx.fillRect(0, 0, 600, 340);
       ctx.fillStyle = "#05695A";
       ctx.font = "bold 28px Manrope, sans-serif";
-      ctx.fillText("gacha", 40, 50);
+      ctx.fillText("cocolot", 40, 50);
 
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(40, 80, 520, 200);
@@ -497,7 +547,7 @@ export function Check({ initialChecking = false }: CheckProps) {
       ctx.fillText(evalResult.formattedAmount, 60, 230);
 
       const a = document.createElement("a");
-      a.download = `gacha-${(parsed.fullTicketString || "lottery").replace(/\s+/g, "")}.png`;
+      a.download = `cocolot-${(parsed.fullTicketString || "lottery").replace(/\s+/g, "")}.png`;
       a.href = canvas.toDataURL();
       a.click();
     }
@@ -555,10 +605,14 @@ export function Check({ initialChecking = false }: CheckProps) {
         {isChecking && (
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: isJackpotDimmed ? 0.9 : 0.45 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.6 }}
-            className="fixed inset-0 z-10 bg-black pointer-events-none backdrop-blur-[2px]"
+            transition={{ duration: 0.5 }}
+            className={`fixed inset-0 z-10 pointer-events-none backdrop-blur-[2px] transition-colors duration-500 ${
+              isJackpotDimmed
+                ? "bg-black/85"
+                : "bg-[#09241E]/20 dark:bg-black/50"
+            }`}
           />
         )}
       </AnimatePresence>
@@ -572,7 +626,7 @@ export function Check({ initialChecking = false }: CheckProps) {
               <motion.div
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface/90 border border-border shadow-soft text-xs font-semibold text-muted backdrop-blur-sm"
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface/95 border border-border shadow-soft text-xs font-semibold text-main backdrop-blur-sm"
               >
                 <span
                   className={`w-2 h-2 rounded-full shrink-0 ${
@@ -927,7 +981,7 @@ export function Check({ initialChecking = false }: CheckProps) {
           {/* Scroll Cue (Only in input mode) */}
           {!isChecking && (
             <div className="pt-2 flex flex-col items-center justify-center text-subtle text-xs gap-1 opacity-70">
-              <span>Scroll for recent results &amp; tracker</span>
+              <span>Scroll for recent results &amp; upcoming schedule</span>
               <ArrowDown className="w-3.5 h-3.5 animate-bounce" />
             </div>
           )}
@@ -942,128 +996,144 @@ export function Check({ initialChecking = false }: CheckProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.3 }}
-            className="w-full max-w-4xl mx-auto py-8 sm:py-12 border-t border-border mt-4"
+            className="w-full max-w-4xl mx-auto py-8 sm:py-10 border-t border-border mt-4"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {/* Recent Results */}
               <div className="bg-surface rounded-3xl p-5 sm:p-6 border border-border shadow-soft space-y-3">
                 <div className="flex items-center justify-between pb-1">
                   <h2 className="text-sm font-bold text-main">Recent results</h2>
-                  <span className="text-xs text-subtle font-medium">Last 4 draws</span>
+                  <Link
+                    to="/results"
+                    className="text-xs text-primary font-semibold hover:underline"
+                  >
+                    All results →
+                  </Link>
                 </div>
 
                 <div className="space-y-2">
                   {draws.slice(0, 4).map((draw) => {
                     const scheme = getScheme(draw.schemeCode);
+                    const firstPrize = draw.headlinePrize || draw.prizes?.firstPrize;
+                    const formattedTicket = firstPrize
+                      ? `${firstPrize.series ? `${firstPrize.series} ` : ""}${firstPrize.number}`
+                      : null;
+
                     return (
                       <Link
                         key={draw.id}
                         to={`/results/${draw.id}`}
-                        className="flex items-center justify-between p-3 rounded-2xl hover:bg-input-box/60 border border-border/60 transition-colors"
+                        className="flex items-center justify-between p-3 rounded-2xl hover:bg-input-box/60 border border-border/60 transition-colors gap-3"
                       >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs"
-                            style={{
-                              backgroundColor: scheme.theme.bg,
-                              color: scheme.theme.text,
-                            }}
-                          >
-                            {scheme.code}
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-main flex items-center gap-1.5">
-                              <span>
-                                {scheme.name} {draw.id}
+                        <div className="min-w-0 space-y-1">
+                          <div className="text-xs font-bold text-main flex items-center gap-2">
+                            <span
+                              className="text-[10px] font-semibold px-2 py-0.5 rounded-md font-mono uppercase shrink-0"
+                              style={{
+                                backgroundColor: scheme.theme.bg,
+                                color: scheme.theme.text,
+                              }}
+                            >
+                              {draw.id}
+                            </span>
+                            <span className="truncate">{scheme.name}</span>
+                            {draw.isDrawnToday && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">
+                                Today
                               </span>
-                              {draw.isDrawnToday && (
-                                <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-primary/10 text-primary">
-                                  Drawn today
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[11px] text-muted">
-                              {new Date(draw.drawDate).toLocaleDateString("en-IN", {
-                                weekday: "short",
-                                day: "numeric",
-                                month: "short",
-                              })}{" "}
-                              · 1st: {draw.prizes ? formatINR(draw.prizes.firstPrize.amount) : "Pending"}
-                            </div>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-muted">
+                            {new Date(draw.drawDate).toLocaleDateString("en-IN", {
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                            })}
                           </div>
                         </div>
 
-                        <ChevronRight className="w-4 h-4 text-subtle" />
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          {draw.isPublished && formattedTicket ? (
+                            <div className="text-right space-y-0.5">
+                              <div className="font-mono font-medium text-xs tracking-wider text-main bg-input-box border border-input-border px-2 py-0.5 rounded-lg">
+                                {formattedTicket}
+                              </div>
+                              <div className="text-[11px] font-sans font-medium text-muted tabular-nums">
+                                1st · {formatCompactPrize(firstPrize!.amount)}
+                              </div>
+                            </div>
+                          ) : draw.isPublished ? (
+                            <span className="text-[11px] text-primary font-semibold">
+                              Published
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                              Pending
+                            </span>
+                          )}
+                          <ChevronRight className="w-4 h-4 text-subtle shrink-0" />
+                        </div>
                       </Link>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Your Recent Lotteries */}
+              {/* Upcoming Lotteries */}
               <div className="bg-surface rounded-3xl p-5 sm:p-6 border border-border shadow-soft space-y-3">
                 <div className="flex items-center justify-between pb-1">
-                  <h2 className="text-sm font-bold text-main">Your recent lotteries</h2>
-                  <Link to="/tickets" className="text-xs text-subtle font-medium hover:text-main">
-                    {recentTickets.length} recorded
-                  </Link>
+                  <h2 className="text-sm font-bold text-main">Upcoming lotteries</h2>
+                  <span className="text-xs text-subtle font-sans font-medium tabular-nums">
+                    Daily · 3:00 PM IST
+                  </span>
                 </div>
 
-                {recentTickets.length === 0 ? (
-                  <div className="py-8 text-center space-y-2">
-                    <TicketIcon className="w-8 h-8 text-subtle mx-auto" />
-                    <p className="text-xs text-muted">
-                      No lotteries checked yet. Enter your lottery above to see your history.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {recentTickets.map((tkt) => {
-                      const isWin = (tkt.wonAmount || 0) > 0;
-                      const scheme = getScheme(tkt.schemeCode);
-                      return (
-                        <div
-                          key={tkt.id}
-                          className="flex items-center justify-between p-3 rounded-2xl border border-border/60"
-                        >
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs font-bold text-main">
-                                {tkt.ticketString}
-                              </span>
-                              <span className="text-[11px] text-subtle">
-                                · {scheme.name} {tkt.drawId}
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-muted mt-0.5">
-                              {tkt.result?.tier || (isWin ? "Prize match" : "No winning matches")}
-                            </div>
-                          </div>
-
-                          <div>
-                            {isWin ? (
-                              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-gold-bg text-gold-text border border-gold-border font-mono">
-                                {formatINR(tkt.wonAmount)}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-subtle font-medium px-2 py-0.5 rounded-full bg-input-box">
-                                Not drawn
+                <div className="space-y-2">
+                  {upcomingDraws.map((item) => {
+                    const { scheme } = item;
+                    return (
+                      <div
+                        key={item.dateStr}
+                        className="flex items-center justify-between p-3 rounded-2xl border border-border/60 gap-3"
+                      >
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="text-xs font-bold text-main flex items-center gap-2 flex-wrap">
+                            <span
+                              className="text-[10px] font-semibold px-2 py-0.5 rounded-md font-mono uppercase shrink-0"
+                              style={{
+                                backgroundColor: scheme.theme.bg,
+                                color: scheme.theme.text,
+                              }}
+                            >
+                              {scheme.code}
+                            </span>
+                            <span className="truncate">{scheme.name}</span>
+                            {item.isToday && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 shrink-0">
+                                Today · 3 PM
                               </span>
                             )}
                           </div>
+                          <div className="text-[11px] text-muted flex items-center gap-1.5">
+                            <Calendar className="w-3 h-3 shrink-0" />
+                            <span>{item.dayLabel}</span>
+                          </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+
+                        <div className="text-right shrink-0 space-y-0.5">
+                          <div className="font-sans text-xs font-bold text-main tabular-nums">
+                            {formatCompactPrize(scheme.firstPrize)}
+                          </div>
+                          <div className="text-[11px] font-sans text-muted tabular-nums">
+                            ₹{scheme.price} ticket
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-
-            {/* Footer declaration */}
-            <footer className="mt-12 text-center text-xs text-subtle max-w-lg mx-auto">
-              gacha is an independent result checker, not affiliated with Kerala State Lotteries.
-              Always confirm prizes with the official results.
-            </footer>
           </motion.section>
         )}
       </AnimatePresence>

@@ -238,7 +238,7 @@ export function TicketGraphic({
               return (
                 <div
                   key={i}
-                  className={`aspect-[4/5] rounded-lg sm:rounded-xl border flex items-center justify-center font-mono font-extrabold text-sm sm:text-xl md:text-2xl transition-all duration-150 min-w-0 ${boxClasses}`}
+                  className={`aspect-[4/5] rounded-lg sm:rounded-xl border flex items-center justify-center font-mono font-medium text-sm sm:text-xl md:text-2xl transition-all duration-150 min-w-0 ${boxClasses}`}
                 >
                   <span className="truncate">{char || "-"}</span>
                 </div>
